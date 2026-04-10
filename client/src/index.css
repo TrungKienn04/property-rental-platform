@@ -1,6 +1,70 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    :root {
+        --page-bg: #f6efe6;
+        --surface: rgba(255, 255, 255, 0.92);
+        --surface-strong: #ffffff;
+        --surface-soft: #fff8ef;
+        --border-soft: rgba(148, 163, 184, 0.2);
+        --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.08);
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --brand: #f59e0b;
+        --brand-strong: #ea580c;
+        --brand-dark: #7c2d12;
+    }
+
+    html {
+        scroll-behavior: smooth;
+    }
+
+    body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+            radial-gradient(circle at top left, rgba(251, 191, 36, 0.18), transparent 28%),
+            radial-gradient(circle at top right, rgba(249, 115, 22, 0.08), transparent 22%),
+            linear-gradient(180deg, #fffdf8 0%, var(--page-bg) 38%, #f7efe5 100%);
+        color: var(--text-main);
+        font-family: "Manrope", "Segoe UI", sans-serif;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    ::selection {
+        background: rgba(245, 158, 11, 0.2);
+        color: var(--text-main);
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    img {
+        max-width: 100%;
+        display: block;
+    }
+
+    a,
+    button {
+        -webkit-tap-highlight-color: transparent;
+    }
+}
+
+@layer components {
+    .surface-card {
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        box-shadow: var(--shadow-soft);
+        backdrop-filter: blur(18px);
+    }
+}
 
 .star-item {
     display: inline-block;
@@ -79,5 +143,19 @@ input[type="range"]::-ms-thumb:active {
     100% {
         -webkit-transform: translateX(100px);
         transform: translateX(100px);
+    }
+}
+
+@keyframes chat-float {
+    0% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-6px);
+    }
+
+    100% {
+        transform: translateY(0);
     }
 }

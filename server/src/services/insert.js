@@ -7,7 +7,13 @@ import nhachothue from '../../data/nhachothue.json'
 import chothuephongtro from '../../data/chothuephongtro.json'
 import generateCode from '../ultis/generateCode'
 import { dataPrice, dataArea } from '../ultis/data'
-import { getNumberFromString, getNumberFromStringV2 } from '../ultis/common'
+const {
+    createProvinceCode,
+    DEFAULT_PROVINCES,
+    mergeProvinceCatalog,
+    resolveProvinceCodeFromAddress,
+} = require('../ultis/provinceCode')
+const { derivePostPriceAreaCodes } = require('../ultis/priceAreaCode')
 require('dotenv').config()
 const dataBody = [
     {
@@ -35,6 +41,11 @@ export const insertService = () => new Promise(async (resolve, reject) => {
     try {
         const provinceCodes = []
         const labelCodes = []
+        const currentProvinces = await db.Province.findAll({
+            raw: true,
+            attributes: ['code', 'value'],
+        })
+        const provinceCatalog = mergeProvinceCatalog(currentProvinces)
         dataBody.forEach(cate => {
             cate.body.forEach(async (item) => {
                 let postId = v4()
@@ -43,18 +54,24 @@ export const insertService = () => new Promise(async (resolve, reject) => {
                     code: labelCode,
                     value: item?.header?.class?.classType?.trim()
                 })
-                let provinceCode = generateCode(item?.header?.address?.split(',')?.slice(-1)[0]).trim()
+                const provinceValue = item?.header?.address?.split(',')?.slice(-1)[0]?.trim() || ''
+                let provinceCode = resolveProvinceCodeFromAddress(item?.header?.address, provinceCatalog)
+                if (!provinceCode) provinceCode = createProvinceCode(provinceValue)
                 provinceCodes?.every(item => item?.code !== provinceCode) && provinceCodes.push({
                     code: provinceCode,
-                    value: item?.header?.address?.split(',')?.slice(-1)[0].trim()
+                    value: provinceValue
                 })
                 let attributesId = v4()
                 let userId = v4()
                 let imagesId = v4()
                 let overviewId = v4()
                 let desc = JSON.stringify(item?.mainContent?.content)
-                let currentArea = getNumberFromString(item?.header?.attributes?.acreage)
-                let currentPrice = getNumberFromString(item?.header?.attributes?.price)
+                const derivedCodes = derivePostPriceAreaCodes({
+                    priceText: item?.header?.attributes?.price,
+                    acreageText: item?.header?.attributes?.acreage,
+                    priceCatalog: dataPrice,
+                    areaCatalog: dataArea,
+                })
                 await db.Post.create({
                     id: postId,
                     title: item?.header?.title,
@@ -67,11 +84,11 @@ export const insertService = () => new Promise(async (resolve, reject) => {
                     userId,
                     overviewId,
                     imagesId,
-                    areaCode: dataArea.find(area => area.max > currentArea && area.min <= currentArea)?.code,
-                    priceCode: dataPrice.find(area => area.max > currentPrice && area.min <= currentPrice)?.code,
+                    areaCode: derivedCodes.areaCode,
+                    priceCode: derivedCodes.priceCode,
                     provinceCode,
-                    priceNumber: getNumberFromStringV2(item?.header?.attributes?.price),
-                    areaNumber: getNumberFromStringV2(item?.header?.attributes?.acreage)
+                    priceNumber: derivedCodes.priceNumber,
+                    areaNumber: derivedCodes.areaNumber
                 })
                 await db.Attribute.create({
                     id: attributesId,
@@ -104,7 +121,7 @@ export const insertService = () => new Promise(async (resolve, reject) => {
             })
         })
         // console.log(provinceCodes);
-        provinceCodes?.forEach(async (item) => {
+        mergeProvinceCatalog([...DEFAULT_PROVINCES, ...provinceCodes])?.forEach(async (item) => {
             await db.Province.create(item)
         })
         labelCodes?.forEach(async (item) => {

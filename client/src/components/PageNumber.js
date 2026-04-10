@@ -1,50 +1,47 @@
-import React, { memo } from 'react'
-import { createSearchParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useLocation } from 'react-router-dom';
+import React, { memo } from "react";
+import {
+  createSearchParams,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
+const { buildSearchParamsObject, mergeQueryValues } = require("../ultils/Common/queryHelpers");
 
-const notActive = 'w-[46px] h-[48px] flex justify-center items-center bg-white hover:bg-gray-300 rounded-md'
-const active = 'w-[46px] h-[48px] flex justify-center items-center bg-[#E13427] text-white hover:opacity-90 rounded-md'
+const PageNumber = ({ text, currentPage, icon, setCurrentPage }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const isActive = Number(text) === Number(currentPage);
+  const isEllipsis = text === "...";
 
-const PageNumber = ({ text, currentPage, icon, setCurrentPage, type }) => {
-    const navigate = useNavigate()
-    const location = useLocation()
-    const [paramsSeach] = useSearchParams()
-    let entries = paramsSeach.entries()
+  const handleChangePage = () => {
+    if (isEllipsis) return;
 
-    const append = (entries) => {
-        let params = []
-        paramsSeach.append('page', +text)
-        for (let entry of entries) {
-            params.push(entry);
-        }
-        let searchParamsObject = {}
-        params?.forEach(i => {
-            if (Object.keys(searchParamsObject)?.some(item => item === i[0] && item !== 'page')) {
-                searchParamsObject[i[0]] = [...searchParamsObject[i[0]], i[1]]
-            } else {
-                searchParamsObject = { ...searchParamsObject, [i[0]]: [i[1]] }
-            }
-        })
-        return searchParamsObject
-    }
+    const current = buildSearchParamsObject(searchParams);
+    const nextQuery = mergeQueryValues(current, {
+      page: Number(text),
+    });
 
-    const handleChangePage = () => {
-        if (!(text === '...')) {
-            setCurrentPage(+text)
-            navigate({
-                pathname: location?.pathname,
-                search: createSearchParams(append(entries)).toString()
-            });
-        }
-    }
-    return (
-        <div
-            className={+text === +currentPage ? `${active} ${text === '...' ? 'cursor-text' : 'cursor-pointer'}` : `${notActive} ${text === '...' ? 'cursor-text' : 'cursor-pointer'}`}
-            onClick={handleChangePage}
-        >
-            {icon || text}
-        </div>
-    )
-}
+    setCurrentPage(Number(text));
+    navigate({
+      pathname: location.pathname,
+      search: createSearchParams(nextQuery).toString(),
+    });
+  };
 
-export default memo(PageNumber)
+  return (
+    <button
+      type="button"
+      className={`flex h-11 min-w-[44px] items-center justify-center rounded-2xl border px-3 text-sm font-semibold transition ${
+        isActive
+          ? "border-slate-900 bg-slate-900 text-white"
+          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+      } ${isEllipsis ? "cursor-default" : ""}`}
+      onClick={handleChangePage}
+    >
+      {icon || text}
+    </button>
+  );
+};
+
+export default memo(PageNumber);

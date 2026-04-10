@@ -1,29 +1,44 @@
-import React from 'react'
-import Header from './Header'
-import { Outlet } from 'react-router-dom'
-import { Navigation, Search } from './index'
-import { Intro, Contact } from '../../components'
-import { useDispatch, useSelector } from 'react-redux'
-
+import React from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import Header from "./Header";
+import { Navigation, Search } from "./index";
+import { Contact, Intro, Footer } from "../../components";
+import { path } from "../../ultils/constant";
+import bgLogin from "../../assets/bg-login.jpg";
 
 const Home = () => {
-    const { isLoggedIn } = useSelector(state => state.auth)
+  const location = useLocation();
+  const isAuthRoute = location.pathname === `/${path.LOGIN}`;
 
+  if (isAuthRoute) {
     return (
-        <div className='w-full flex gap-6 flex-col items-center h-full'>
-            <Header />
-            <Navigation />
-            {isLoggedIn && <Search />}
-            <div className='w-4/5 lg:w-3/5 flex flex-col items-start justify-start mt-3'>
-                <Outlet />
-            </div>
-            <Intro />
-            <Contact />
-            <div className='h-[500px]'>
+      <div className="min-h-screen bg-[#f9f4ee]">
+        <Header />
+        <main
+          className="flex min-h-[calc(100vh-81px)] w-full items-center justify-center bg-cover bg-center bg-no-repeat px-4 py-6 sm:px-6 sm:py-8"
+          style={{
+            backgroundImage: `linear-gradient(rgba(255, 249, 241, 0.72), rgba(255, 249, 241, 0.78)), url(${bgLogin})`,
+          }}
+        >
+          <Outlet />
+        </main>
+      </div>
+    );
+  }
 
-            </div>
-        </div>
-    )
-}
+  return (
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.16),_transparent_24%),linear-gradient(180deg,_#fffdf8_0%,_#f8fafc_100%)]">
+      <Header />
+      <Navigation />
+      <main className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-4 py-6 lg:px-6">
+        <Search />
+        <Outlet />
+        <Intro />
+        <Contact />
+      </main>
+      <Footer />
+    </div>
+  );
+};
 
-export default Home
+export default Home;

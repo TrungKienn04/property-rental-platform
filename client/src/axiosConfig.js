@@ -1,29 +1,45 @@
 import axios from "axios";
 
 const instance = axios.create({
-    baseURL: process.env.REACT_APP_SERVER_URL
-})
+  baseURL: process.env.REACT_APP_SERVER_URL,
+});
 
-// Add a request interceptor
-instance.interceptors.request.use(function (config) {
-    // Do something before request is sent
-    // gắn token vào header
-    let token = window.localStorage.getItem('persist:auth') && JSON.parse(window.localStorage.getItem('persist:auth'))?.token?.slice(1, -1)
+const getStoredToken = () => {
+  return (
+    window.sessionStorage.getItem("APP_TOKEN") ||
+    window.localStorage.getItem("APP_TOKEN") ||
+    null
+  );
+};
+
+instance.interceptors.request.use(
+  function (config) {
+    const token = getStoredToken();
+
     config.headers = {
-        authorization: token ? `Bearer ${token}` : null
+      ...config.headers,
+    };
+
+    if (token) {
+      config.headers.authorization = `Bearer ${token}`;
+    } else {
+      delete config.headers.authorization;
     }
+
     return config;
-}, function (error) {
+  },
+  function (error) {
     return Promise.reject(error);
-});
+  },
+);
 
-// Add a response interceptor
-instance.interceptors.response.use(function (response) {
-    // refresh token
+instance.interceptors.response.use(
+  function (response) {
     return response;
-}, function (error) {
+  },
+  function (error) {
     return Promise.reject(error);
-});
+  },
+);
 
-
-export default instance
+export default instance;

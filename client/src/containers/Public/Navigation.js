@@ -1,44 +1,55 @@
-import React, { useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom'
-import { formatVietnameseToString } from '../../ultils/Common/formatVietnameseToString'
-import { useDispatch, useSelector } from 'react-redux'
-import * as actions from '../../store/actions'
-
-
-const notActive = 'hover:bg-secondary2 px-4 h-full flex items-center bg-secondary1'
-const active = 'hover:bg-secondary2 px-4 h-full flex items-center  bg-secondary2'
+import React, { useEffect } from "react";
+import { NavLink } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { formatVietnameseToString } from "../../ultils/Common/formatVietnameseToString";
+import * as actions from "../../store/actions";
 
 const Navigation = ({ isAdmin }) => {
+  const dispatch = useDispatch();
+  const { categories } = useSelector((state) => state.app);
 
-    const dispatch = useDispatch()
-    const { categories } = useSelector(state => state.app)
-    useEffect(() => {
-        dispatch(actions.getCategories())
-    }, [])
-    return (
-        <div className={`w-full flex ${isAdmin ? 'justify-start' : 'justify-center'} items-center h-[40px] bg-secondary1 text-white`}>
-            <div className='w-3/5 flex h-full items-center text-sm font-medium'>
-                <NavLink
-                    to={`/`}
-                    className={({ isActive }) => isActive ? active : notActive}
-                >
-                    Trang chủ
-                </NavLink>
-                {categories?.length > 0 && categories.map(item => {
-                    return (
-                        <div key={item.code} className='h-full flex justify-center items-center' >
-                            <NavLink
-                                to={`/${formatVietnameseToString(item.value)}`}
-                                className={({ isActive }) => isActive ? active : notActive}
-                            >
-                                {item.value}
-                            </NavLink>
-                        </div>
-                    )
-                })}
-            </div>
-        </div>
-    )
-}
+  useEffect(() => {
+    dispatch(actions.getCategories());
+  }, [dispatch]);
 
-export default Navigation
+  return (
+    <div className="border-b border-slate-200/80 bg-white/80 backdrop-blur">
+      <div
+        className={`mx-auto flex w-full max-w-[1180px] flex-wrap gap-2 px-4 py-2.5 lg:px-6 ${
+          isAdmin ? "justify-start" : "justify-center"
+        }`}
+      >
+        <NavLink
+          to="/"
+          end
+          className={({ isActive }) =>
+            `rounded-full px-4 py-2 text-sm font-semibold transition ${
+              isActive
+                ? "bg-slate-900 text-white shadow-sm"
+                : "bg-white text-slate-600 hover:bg-amber-50 hover:text-amber-700"
+            }`
+          }
+        >
+          Trang chủ
+        </NavLink>
+        {categories?.map((item) => (
+          <NavLink
+            key={item.code}
+            to={`/${formatVietnameseToString(item.value)}`}
+            className={({ isActive }) =>
+              `rounded-full px-4 py-2 text-sm font-semibold transition ${
+                isActive
+                  ? "bg-amber-400 text-slate-950 shadow-sm"
+                  : "bg-white text-slate-600 hover:bg-amber-50 hover:text-amber-700"
+              }`
+            }
+          >
+            {item.value}
+          </NavLink>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default Navigation;

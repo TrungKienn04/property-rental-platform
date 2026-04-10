@@ -1,98 +1,202 @@
-import React, { useCallback, useEffect, useState } from 'react'
-import { SearchItem, Modal } from '../../components'
-import icons from '../../ultils/icons'
-import { useSelector, useDispatch } from 'react-redux'
-import { useNavigate, createSearchParams, useLocation } from 'react-router-dom'
-import { path } from '../../ultils/constant'
+import React, { useEffect, useState } from "react";
+import { createSearchParams, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { Modal, SearchItem } from "../../components";
+import icons from "../../ultils/icons";
+import { path } from "../../ultils/constant";
+const {
+  buildSearchParamsObject,
+  buildSearchTitle,
+  mergeQueryValues,
+} = require("../../ultils/Common/queryHelpers");
 
-const { BsChevronRight, HiOutlineLocationMarker, TbReportMoney, RiCrop2Line, MdOutlineHouseSiding, FiSearch } = icons
+const {
+  BsChevronRight,
+  FiSearch,
+  HiOutlineLocationMarker,
+  MdOutlineHouseSiding,
+  RiCrop2Line,
+  TbReportMoney,
+} = icons;
 
 const Search = () => {
-    const navigate = useNavigate()
-    const location = useLocation()
-    const [isShowModal, setIsShowModal] = useState(false)
-    const [content, setContent] = useState([])
-    const [name, setName] = useState('')
-    const { provinces, areas, prices, categories } = useSelector(state => state.app)
-    const [queries, setQueries] = useState({})
-    const [arrMinMax, setArrMinMax] = useState({})
-    const [defaultText, setDefaultText] = useState('')
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const [isShowModal, setIsShowModal] = useState(false);
+  const [content, setContent] = useState([]);
+  const [name, setName] = useState("");
+  const [queries, setQueries] = useState({});
+  const [arrMinMax, setArrMinMax] = useState({});
+  const [defaultText, setDefaultText] = useState("");
+  const { provinces, areas, prices, categories } = useSelector((state) => state.app);
 
-    useEffect(() => {
-        if (!location?.pathname.includes(path.SEARCH)) {
-            setArrMinMax({})
-            setQueries({})
-        }
-    }, [location])
+  useEffect(() => {
+    const currentQuery = buildSearchParamsObject(searchParams);
+    const nextQueries = {};
+    const provinceCode = currentQuery.provinceCode;
+    const categoryCode = currentQuery.categoryCode;
+    const priceCode = currentQuery.priceCode;
+    const areaCode = currentQuery.areaCode;
+    const priceRange = currentQuery.priceNumber;
+    const areaRange = currentQuery.areaNumber;
 
-    const handleShowModal = (content, name, defaultText) => {
-        setContent(content)
-        setName(name)
-        setDefaultText(defaultText)
-        setIsShowModal(true)
+    if (provinceCode) {
+      nextQueries.provinceCode = provinceCode;
+      nextQueries.province =
+        provinces?.find((item) => item.code === provinceCode)?.value || "";
     }
-    const handleSubmit = useCallback((e, query, arrMaxMin) => {
-        e.stopPropagation()
-        setQueries(prev => ({ ...prev, ...query }))
-        setIsShowModal(false)
-        arrMaxMin && setArrMinMax(prev => ({ ...prev, ...arrMaxMin }))
-    }, [isShowModal, queries])
-    const handleSearch = () => {
-        const queryCodes = Object.entries(queries).filter(item => item[0].includes('Number') || item[0].includes('Code')).filter(item => item[1])
-        let queryCodesObj = {}
-        queryCodes.forEach(item => { queryCodesObj[item[0]] = item[1] })
-        const queryText = Object.entries(queries).filter(item => !item[0].includes('Code') || !item[0].includes('Number'))
-        let queryTextObj = {}
-        queryText.forEach(item => { queryTextObj[item[0]] = item[1] })
-        let titleSearch = `${queryTextObj.category
-            ? queryTextObj.category
-            : 'Cho thuê tất cả'} ${queryTextObj.province
-                ? `tỉnh ${queryTextObj.province}`
-                : ''} ${queryTextObj.price
-                    ? `giá ${queryTextObj.price}`
-                    : ''} ${queryTextObj.area
-                        ? `diện tích ${queryTextObj.area}` : ''} `
-        navigate({
-            pathname: path.SEARCH,
-            search: createSearchParams(queryCodesObj).toString(),
-        }, { state: { titleSearch } })
-
+    if (categoryCode) {
+      nextQueries.categoryCode = categoryCode;
+      nextQueries.category =
+        categories?.find((item) => item.code === categoryCode)?.value || "";
     }
-    return (
-        <>
-            <div className='p-[10px] w-3/5 my-3 bg-[#febb02] rounded-lg flex-col lg:flex-row flex items-center justify-around gap-2' >
-                <span onClick={() => handleShowModal(categories, 'category', 'Tìm tất cả')} className='cursor-pointer flex-1'>
-                    <SearchItem IconBefore={<MdOutlineHouseSiding />} fontWeight IconAfter={<BsChevronRight color='rgb(156, 163, 175)' />} text={queries.category} defaultText={'Tìm tất cả'} />
-                </span>
-                <span onClick={() => handleShowModal(provinces, 'province', 'Toàn quốc')} className='cursor-pointer flex-1'>
-                    <SearchItem IconBefore={<HiOutlineLocationMarker />} IconAfter={<BsChevronRight color='rgb(156, 163, 175)' />} text={queries.province} defaultText={'Toàn quốc'} />
-                </span>
-                <span onClick={() => handleShowModal(prices, 'price', 'Chọn giá')} className='cursor-pointer flex-1'>
-                    <SearchItem IconBefore={<TbReportMoney />} IconAfter={<BsChevronRight color='rgb(156, 163, 175)' />} text={queries.price} defaultText={'Chọn giá'} />
-                </span>
-                <span onClick={() => handleShowModal(areas, 'area', 'Chọn diện tích')} className='cursor-pointer flex-1'>
-                    <SearchItem IconBefore={<RiCrop2Line />} IconAfter={<BsChevronRight color='rgb(156, 163, 175)' />} text={queries.area} defaultText={'Chọn diện tích'} />
-                </span>
-                <button
-                    type='button'
-                    onClick={handleSearch}
-                    className='outline-none py-2 px-4 flex-1 bg-secondary1 text-[13.3px] flex items-center justify-center gap-2 text-white font-medium'
-                >
-                    <FiSearch />
-                    Tìm kiếm
-                </button>
-            </div>
-            {isShowModal && <Modal
-                handleSubmit={handleSubmit}
-                queries={queries}
-                arrMinMax={arrMinMax}
-                content={content}
-                name={name}
-                setIsShowModal={setIsShowModal}
-                defaultText={defaultText}
-            />}
-        </>
-    )
-}
+    if (priceCode) {
+      nextQueries.priceCode = priceCode;
+      nextQueries.price = prices?.find((item) => item.code === priceCode)?.value || "";
+    }
+    if (areaCode) {
+      nextQueries.areaCode = areaCode;
+      nextQueries.area = areas?.find((item) => item.code === areaCode)?.value || "";
+    }
+    if (priceRange && !nextQueries.price) {
+      const values = Array.isArray(priceRange) ? priceRange : [priceRange];
+      nextQueries.priceNumber = values;
+      nextQueries.price = `Từ ${values[0]} - ${values[1]} triệu`;
+    }
+    if (areaRange && !nextQueries.area) {
+      const values = Array.isArray(areaRange) ? areaRange : [areaRange];
+      nextQueries.areaNumber = values;
+      nextQueries.area = `Từ ${values[0]} - ${values[1]} m2`;
+    }
 
-export default Search
+    if (location.pathname.includes(path.LOGIN)) return;
+
+    if (location.pathname.includes(path.SEARCH)) {
+      setQueries(nextQueries);
+      return;
+    }
+
+    if (!searchParams.toString()) {
+      setQueries({});
+      setArrMinMax({});
+    }
+  }, [searchParams, location.pathname, provinces, areas, prices, categories]);
+
+  const handleShowModal = (nextContent, nextName, nextDefaultText) => {
+    setContent(nextContent);
+    setName(nextName);
+    setDefaultText(nextDefaultText);
+    setIsShowModal(true);
+  };
+
+  const handleSubmit = (event, query, nextArrMinMax) => {
+    event.stopPropagation();
+    
+    const patch = { ...query };
+    if (patch.priceNumber) patch.priceCode = null;
+    if (patch.areaNumber) patch.areaCode = null;
+
+    setQueries((prev) => mergeQueryValues(prev, patch));
+    setIsShowModal(false);
+    if (nextArrMinMax) {
+      setArrMinMax((prev) => ({ ...prev, ...nextArrMinMax }));
+    }
+  };
+
+  const handleSearch = () => {
+    const queryCodes = Object.entries(queries).reduce((accumulator, [key, value]) => {
+      if (key.includes("Code") || key.includes("Number")) {
+        accumulator[key] = value;
+      }
+      return accumulator;
+    }, {});
+
+    navigate(
+      {
+        pathname: `/${path.SEARCH}`,
+        search: createSearchParams(mergeQueryValues(queryCodes, { page: 1 })).toString(),
+      },
+      { state: { titleSearch: buildSearchTitle(queries) } },
+    );
+  };
+
+  return (
+    <>
+      <section className="w-full rounded-[32px] bg-gradient-to-r from-slate-950 via-slate-900 to-amber-700 p-4 shadow-xl lg:p-5">
+        <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr_1fr_auto]">
+          <button
+            type="button"
+            onClick={() => handleShowModal(categories, "category", "Tìm tất cả")}
+            className="text-left"
+          >
+            <SearchItem
+              IconBefore={<MdOutlineHouseSiding />}
+              fontWeight
+              IconAfter={<BsChevronRight color="rgb(148 163 184)" />}
+              text={queries.category}
+              defaultText="Tìm tất cả"
+            />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleShowModal(provinces, "province", "Toàn quốc")}
+            className="text-left"
+          >
+            <SearchItem
+              IconBefore={<HiOutlineLocationMarker />}
+              IconAfter={<BsChevronRight color="rgb(148 163 184)" />}
+              text={queries.province}
+              defaultText="Toàn quốc"
+            />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleShowModal(prices, "price", "Chọn giá")}
+            className="text-left"
+          >
+            <SearchItem
+              IconBefore={<TbReportMoney />}
+              IconAfter={<BsChevronRight color="rgb(148 163 184)" />}
+              text={queries.price}
+              defaultText="Chọn giá"
+            />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleShowModal(areas, "area", "Chọn diện tích")}
+            className="text-left"
+          >
+            <SearchItem
+              IconBefore={<RiCrop2Line />}
+              IconAfter={<BsChevronRight color="rgb(148 163 184)" />}
+              text={queries.area}
+              defaultText="Chọn diện tích"
+            />
+          </button>
+          <button
+            type="button"
+            onClick={handleSearch}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-400 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-amber-300"
+          >
+            <FiSearch />
+            Tìm kiếm
+          </button>
+        </div>
+      </section>
+      {isShowModal && (
+        <Modal
+          handleSubmit={handleSubmit}
+          queries={queries}
+          arrMinMax={arrMinMax}
+          content={content}
+          name={name}
+          setIsShowModal={setIsShowModal}
+          defaultText={defaultText}
+        />
+      )}
+    </>
+  );
+};
+
+export default Search;

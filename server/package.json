@@ -4,7 +4,12 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "start": "nodemon --exec babel-node server.js"
+    "start": "nodemon --exec babel-node server.js",
+    "backfill:province": "babel-node src/scripts/backfillProvinceCodes.js",
+    "backfill:price-area": "babel-node src/scripts/backfillPriceAreaCodes.js",
+    "repair:images": "babel-node src/scripts/repairImages.js",
+    "smoke:filters": "node src/scripts/smokeFilters.js",
+    "test": "node test/run-tests.cjs"
   },
   "keywords": [],
   "author": "",
@@ -15,6 +20,7 @@
     "dotenv": "^16.0.1",
     "express": "^4.18.1",
     "jsonwebtoken": "^8.5.1",
+    "multer": "^2.1.1",
     "mysql2": "^2.3.3",
     "nodemon": "^2.0.19",
     "sequelize": "^6.21.3",

@@ -2,3 +2,90 @@ INSERT INTO categories (code, value, header, subheader, createdAt, updatedAt) VA
 INSERT INTO categories (code, value, header, subheader, createdAt, updatedAt) VALUES ("CTMB", "Cho thuê mặt bằng","Cho Thuê Mặt Bằng, Cho Thuê Văn Phòng, Cửa Hàng, Kiot, Mới Nhất 2022", "Cho thuê mặt bằng - Kênh đăng tin cho thuê mặt bằng, cho thuê cửa hàng, cho thuê kiot số 1: giá rẻ, mặt tiền, khu đông dân cư, phù hợp kinh doanh.", current_timestamp, current_timestamp);
 INSERT INTO categories (code, value, header, subheader, createdAt, updatedAt) VALUES ("CTPT","Cho thuê phòng trọ", "Cho Thuê Phòng Trọ, Giá Rẻ, Tiện Nghi, Mới Nhất 2022", "Cho thuê phòng trọ - Kênh thông tin số 1 về phòng trọ giá rẻ, phòng trọ sinh viên, phòng trọ cao cấp mới nhất năm 2022. Tất cả nhà trọ cho thuê giá tốt nhất tại Việt Nam.", current_timestamp, current_timestamp);
 INSERT INTO categories (code, value, header, subheader, createdAt, updatedAt) VALUES ("NCT", "Nhà cho thuê","Cho Thuê Nhà Nguyên Căn, Giá Rẻ, Chính Chủ, Mới Nhất 2022", "Cho thuê nhà nguyên căn - Kênh đăng tin cho thuê nhà số 1: giá rẻ, chính chủ, miễn trung gian, đầy đủ tiện nghi, mức giá, diện tích cho thuê khác nhau.", current_timestamp, current_timestamp);
+
+
+Kiểm tra nhanh file SQL xem có định nghĩa bảng `categories` và dữ liệu liên quan không.
+
+Searched for regex `` CREATE TABLE `categories`|INSERT INTO `categories`|`categories` `` (`**/server/**`), no results
+
+Read [](file:///d%3A/thue_tro_123/fullstack-phong-tro-123/server/insert.txt)
+
+Read [](file:///d%3A/thue_tro_123/fullstack-phong-tro-123/server/src/models/category.js)
+
+Read [](file:///d%3A/thue_tro_123/fullstack-phong-tro-123/server/src/migrations/create-category.js)
+
+Searched for regex `` Categories|CREATE TABLE 'Categories'|CREATE TABLE `Categories` `` (`**/server/**`), 11 results
+
+Read [](file:///d%3A/thue_tro_123/fullstack-phong-tro-123/server/src/services/category.js)
+
+Read [](file:///d%3A/thue_tro_123/fullstack-phong-tro-123/server/src/migrations)
+
+Cập nhật todo: thêm các bước tạo bảng và nạp dữ liệu trước khi kiểm tra navbar.
+
+Completed: *Configure client API base URL (env or proxy)* (3/10)
+
+Ngắn gọn: endpoint bây giờ trả lỗi "Table 'phongtro123.categories' doesn't exist" — do đó backend kết nối được DB nhưng bảng `categories` không có. Để sửa, bạn phải tạo các bảng trong DB rồi nạp dữ liệu (categories) — sau đó frontend sẽ lấy được categories và navbar sẽ hiển thị.
+
+Hai cách làm (chọn 1):
+
+A — Chạy migrations (khuyến nghị, tạo tất cả bảng):
+1. Mở terminal, vào thư mục server:
+   ```bash
+   cd D:\thue_tro_123\fullstack-phong-tro-123\server
+   npm install   # nếu chưa chạy
+   ```
+2. Chạy migration bằng sequelize-cli:
+   ```bash
+   npx sequelize-cli db:migrate --migrations-path src/migrations --config src/config/config.json
+   ```
+   - Lệnh này sẽ tạo tất cả bảng (Categories, Posts, Users, ...).
+3. Sau khi chạy xong, kiểm tra bảng:
+   ```bash
+   mysql -u root -p -e "USE phongtro123; SHOW TABLES;"
+   mysql -u root -p -e "USE phongtro123; SELECT COUNT(*) FROM categories;"
+   ```
+4. Nạp dữ liệu categories (nếu migrations chỉ tạo bảng rỗng):
+   - Cách nhanh: dùng endpoint insert (chạy 1 lần):
+     ```bash
+     curl -X POST http://localhost:5000/api/v1/insert -H "Content-Type: application/json" -d "{}"
+     ```
+     (Lưu ý: endpoint chèn nhiều bản ghi từ data — chỉ chạy 1 lần.)
+   - Hoặc chèn thủ công bằng insert.txt (chỉ phần INSERT INTO categories): mở phpMyAdmin → chọn DB `phongtro123` → SQL → paste 4 dòng trong insert.txt → Go.
+
+B — Nếu chỉ muốn tạo nhanh bảng `categories` và chèn rows:
+1. Tạo bảng `categories` bằng SQL (phpMyAdmin → SQL hoặc CLI):
+   ```sql
+   CREATE TABLE categories (
+     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+     code VARCHAR(255),
+     value VARCHAR(255),
+     header VARCHAR(255),
+     subheader VARCHAR(255),
+     createdAt DATETIME NOT NULL,
+     updatedAt DATETIME NOT NULL
+   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+   ```
+2. Chèn dữ liệu từ insert.txt (chỉ 4 dòng INSERT INTO categories) qua phpMyAdmin → SQL → paste → Go.
+
+Sau khi đã có bảng và dữ liệu:
+- Test API:
+  ```bash
+  curl -i http://localhost:5000/api/v1/category/all
+  ```
+  Kết quả mong muốn: status 200 và body có mảng category (err:0, response: [...]).
+
+- Nếu API trả data → refresh client (F5). Navbar sẽ render các mục (Navigation.js dùng `state.app.categories`).
+
+Một số lưu ý nếu gặp lỗi:
+- Nếu `npx sequelize-cli db:migrate` báo lỗi kết nối: kiểm tra config.json và user/password MySQL (file hiện mặc định `root`, password null). Nếu bạn dùng XAMPP, mặc định `root` không có password — OK.
+- Nếu file SQL quá lớn import qua phpMyAdmin bị lỗi upload size, dùng CLI:
+  ```bash
+  mysql -u root -p phongtro123 < "D:\thue_tro_123\fullstack-phong-tro-123\server\phongtro123.sql"
+  ```
+  (Hoặc tạo DB trước: `CREATE DATABASE phongtro123;`)
+
+Bạn muốn tôi hướng dẫn từng bước (với ảnh màn hình) cho:
+- Chạy migrations (lệnh npx) — hoặc —
+- Import SQL qua phpMyAdmin ?
+
+Chọn 1 phương án, tôi sẽ gửi hướng dẫn chi tiết tiếp theo.

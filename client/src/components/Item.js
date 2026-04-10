@@ -1,88 +1,182 @@
-import React, { memo, useState } from 'react'
-import icons from '../ultils/icons'
-import { useNavigate, Link } from 'react-router-dom'
-import { formatVietnameseToString } from '../ultils/Common/formatVietnameseToString'
+import React, { memo, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import icons from "../ultils/icons";
+import { formatVietnameseToString } from "../ultils/Common/formatVietnameseToString";
 
-const indexs = [0, 1, 2, 3]
+const {
+  getDisplayDescription,
+  getShortAddress,
+} = require("../ultils/Common/postHelpers");
 
-const { GrStar, RiHeartFill, RiHeartLine, BsBookmarkStarFill } = icons
+const { GrStar, RiHeartFill, RiHeartLine, BsBookmarkStarFill } = icons;
 
-const Item = ({ images, user, title, star, description, attributes, address, id }) => {
-    const [isHoverHeart, setIsHoverHeart] = useState(false)
+const normalizeImages = (images) =>
+  Array.isArray(images) ? images.filter(Boolean) : [];
 
-    const handleStar = (star) => {
-        let stars = []
-        for (let i = 1; i <= +star; i++) stars.push(<GrStar className='star-item' size={18} color='yellow' />)
-        return stars
+const Item = ({
+  images,
+  user,
+  title,
+  star,
+  description,
+  attributes,
+  address,
+  id,
+}) => {
+  const [isHoverHeart, setIsHoverHeart] = useState(false);
+  const [hiddenImages, setHiddenImages] = useState([]);
+  const placeholder = "/placeholder.svg";
+  const safeImages = normalizeImages(images);
 
-    }
-    return (
-        <div className='w-full flex border-t border-orange-600 py-4'>
-            <Link
-                to={`chi-tiet/${formatVietnameseToString(title)}/${id}`}
-                className='w-2/5 flex flex-wrap gap-[2px] items-center relative cursor-pointer'
-            >
-                {images.length > 0 && images.filter((i, index) => indexs.some(i => i === index))?.map((i, index) => {
-                    return (
-                        <img key={index} src={i} alt="preview" className='w-[47%] h-[120px] object-cover' />
-                    )
-                })}
-                <span className='bg-overlay-70 text-white px-2 rounded-md absolute left-1 bottom-4'>{`${images.length} ảnh`}</span>
-                <span
-                    className='text-white absolute right-5 bottom-1'
-                    onMouseEnter={() => setIsHoverHeart(true)}
-                    onMouseLeave={() => setIsHoverHeart(false)}
-                >
-                    {isHoverHeart ? <RiHeartFill size={26} color='red' /> : <RiHeartLine size={26} />}
-                </span>
-            </Link>
-            <div className='w-3/5'>
-                <div className='flex justify-between gap-4 w-full'>
-                    <div className='text-red-600 font-medium'>
-                        {handleStar(+star).length > 0 && handleStar(+star).map((star, number) => {
-                            return (
-                                <span key={number}>{star}</span>
-                            )
-                        })}
-                        {title}
-                    </div>
-                    <div className='w-[10%] flex justify-end'>
-                        <BsBookmarkStarFill size={24} color='orange' />
-                    </div>
-                </div>
-                <div className='my-2 flex items-center justify-between gap-2'>
-                    <span className='font-bold flex-3 text-green-600  whitespace-nowrap overflow-hidden text-ellipsis'>{attributes?.price}</span>
-                    <span className='flex-1'>{attributes?.acreage}</span>
-                    <span className='flex-3 whitespace-nowrap overflow-hidden text-ellipsis'>
-                        {`${address.split(',')[address.split(',').length - 2]}${address.split(',')[address.split(',').length - 1]}`}
-                    </span>
-                </div>
-                <p className='text-gray-500 w-full h-[50px] text-ellipsis overflow-hidden'>
-                    {description}
+  useEffect(() => {
+    setHiddenImages([]);
+  }, [id, images]);
+
+  const visibleImages = safeImages.filter(
+    (image) => !hiddenImages.includes(image),
+  );
+  const previewImage = visibleImages.length ? visibleImages[0] : null;
+  const detailPath = `/chi-tiet/${formatVietnameseToString(title)}/${id}`;
+  const imageCount = visibleImages.length || safeImages.length;
+
+  const handleHideImage = (image) => {
+    if (!image) return;
+    setHiddenImages((prev) =>
+      prev.includes(image) ? prev : [...prev, image],
+    );
+  };
+
+  return (
+    <article className="surface-card overflow-hidden rounded-[30px]">
+      <div className="grid gap-0 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <Link
+          to={detailPath}
+          className="group relative block min-h-[240px] overflow-hidden bg-slate-100 lg:min-h-full"
+        >
+          {previewImage ? (
+            <img
+              src={previewImage}
+              alt={title}
+              className="h-full min-h-[240px] w-full object-cover transition duration-500 group-hover:scale-105"
+              onError={() => handleHideImage(previewImage)}
+            />
+          ) : (
+            <div className="flex h-full min-h-[240px] items-center justify-center bg-gradient-to-br from-slate-200 via-slate-100 to-white">
+              <div className="rounded-[24px] border border-white/70 bg-white/90 px-5 py-4 text-center shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+                  Hình ảnh
                 </p>
-                <div className='flex items-center my-5 justify-between'>
-                    <div className=' flex items-center'>
-                        <img src="https://lnsel.com/wp-content/uploads/2018/12/anon-avatar-300x300.png" alt="avatar" className='w-[30px] h-[30px] object-cover rounded-full' />
-                        <p>{user?.name}</p>
-                    </div>
-                    <div className='flex items-center gap-1'>
-                        <button
-                            type='button'
-                            className='bg-blue-700 text-white p-1 rounded-md'
-                        >
-                            {`Gọi ${user?.phone}`}
-                        </button>
-                        <button
-                            type='button'
-                            className='text-blue-700 px-1 rounded-md border border-blue-700'
-                        >
-                            Nhắn zalo
-                        </button>
-                    </div>
-                </div>
+                <p className="mt-2 text-sm font-semibold text-slate-700">
+                  Chưa có ảnh xem trước
+                </p>
+              </div>
             </div>
-        </div>
-    )
-}
+          )}
 
-export default memo(Item)
+          <div className="absolute inset-x-0 top-0 flex items-start justify-between p-4">
+            <span className="rounded-full bg-slate-950/72 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
+              {imageCount ? `${imageCount} ảnh` : "Tin mới"}
+            </span>
+            <span
+              className="rounded-full bg-white/90 p-2 text-slate-700 shadow-sm backdrop-blur"
+              onMouseEnter={() => setIsHoverHeart(true)}
+              onMouseLeave={() => setIsHoverHeart(false)}
+            >
+              {isHoverHeart ? (
+                <RiHeartFill size={20} color="#ef4444" />
+              ) : (
+                <RiHeartLine size={20} />
+              )}
+            </span>
+          </div>
+
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/70 via-slate-900/20 to-transparent" />
+        </Link>
+
+        <div className="flex min-w-0 flex-col justify-between px-5 py-5 lg:px-6 lg:py-6">
+          <div className="space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="mb-2 flex flex-wrap items-center gap-1">
+                  {Array.from({ length: Number(star) || 0 }).map((_, index) => (
+                    <GrStar
+                      key={index}
+                      className="star-item"
+                      size={15}
+                      color="#f59e0b"
+                    />
+                  ))}
+                </div>
+                <Link
+                  to={detailPath}
+                  className="line-clamp-2 text-xl font-extrabold leading-snug text-slate-900 transition hover:text-amber-700"
+                >
+                  {title}
+                </Link>
+              </div>
+              <div className="flex h-11 w-11 flex-none items-center justify-center rounded-2xl bg-amber-50">
+                <BsBookmarkStarFill size={22} color="#f59e0b" />
+              </div>
+            </div>
+
+            <div className="grid gap-3 rounded-[24px] border border-slate-200 bg-white/90 p-4 text-sm text-slate-600 md:grid-cols-3">
+              <span className="truncate rounded-full bg-emerald-50 px-3 py-2 font-semibold text-emerald-700">
+                {attributes?.price}
+              </span>
+              <span className="truncate rounded-full bg-slate-100 px-3 py-2 font-medium text-slate-700">
+                {attributes?.acreage}
+              </span>
+              <span className="truncate rounded-full bg-slate-100 px-3 py-2 font-medium text-slate-700">
+                {getShortAddress(address)}
+              </span>
+            </div>
+
+            <p className="line-clamp-5 text-sm leading-7 text-slate-500">
+              {getDisplayDescription(description)}
+            </p>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-4 border-t border-slate-100 pt-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <img
+                src={
+                  user?.avatar ||
+                  "https://lnsel.com/wp-content/uploads/2018/12/anon-avatar-300x300.png"
+                }
+                alt="avatar"
+                className="h-12 w-12 rounded-full object-cover ring-2 ring-white"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = placeholder;
+                }}
+              />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">
+                  {user?.name || "Chủ nhà"}
+                </p>
+                <p className="truncate text-sm text-slate-500">{address}</p>
+              </div>
+            </div>
+
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <a
+                href={`tel:${user?.phone || ""}`}
+                className="inline-flex min-h-[46px] w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 sm:w-auto"
+              >
+                {`Gọi ${user?.phone || "liên hệ"}`}
+              </a>
+              <Link
+                to={detailPath}
+                className="inline-flex min-h-[46px] w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700 sm:w-auto"
+              >
+                Xem chi tiết
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+};
+
+export default memo(Item);
