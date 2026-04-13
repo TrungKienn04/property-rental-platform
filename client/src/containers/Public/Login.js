@@ -6,10 +6,19 @@ import * as actions from "../../store/actions";
 import icons from "../../ultils/icons";
 import { path } from "../../ultils/constant";
 
+const {
+  EMAIL_REGEX,
+  normalizeLoginIdentifier,
+} = require("../../ultils/Common/authHelpers");
+
 const { GrFormClose } = icons;
 
+const PHONE_REGEX = /^0\d{8,10}$/;
+
 const createInitialPayload = () => ({
+  identifier: "",
   phone: "",
+  email: "",
   password: "",
   name: "",
 });
@@ -73,13 +82,26 @@ const Login = () => {
       } else if (formData.name.length < 2) {
         nextInvalidFields.name = "Họ tên phải có ít nhất 2 ký tự.";
       }
-    }
 
-    if (!formData.phone) {
-      nextInvalidFields.phone = "Vui lòng nhập số điện thoại.";
-    } else if (!/^0\d{8,10}$/.test(formData.phone)) {
-      nextInvalidFields.phone =
-        "Số điện thoại phải gồm 9-11 số và bắt đầu bằng 0.";
+      if (!formData.phone) {
+        nextInvalidFields.phone = "Vui lòng nhập số điện thoại.";
+      } else if (!PHONE_REGEX.test(formData.phone)) {
+        nextInvalidFields.phone =
+          "Số điện thoại phải gồm 9-11 số và bắt đầu bằng 0.";
+      }
+
+      if (!formData.email) {
+        nextInvalidFields.email = "Vui lòng nhập email.";
+      } else if (!EMAIL_REGEX.test(formData.email)) {
+        nextInvalidFields.email = "Email không hợp lệ.";
+      }
+    } else if (!formData.identifier) {
+      nextInvalidFields.identifier = "Vui lòng nhập email hoặc số điện thoại.";
+    } else if (
+      !EMAIL_REGEX.test(formData.identifier)
+      && !PHONE_REGEX.test(formData.identifier)
+    ) {
+      nextInvalidFields.identifier = "Email hoặc số điện thoại không hợp lệ.";
     }
 
     if (!formData.password) {
@@ -96,9 +118,11 @@ const Login = () => {
     if (isSubmitting) return;
 
     const finalPayload = {
-      phone: payload.phone.trim().replace(/\s+/g, ""),
+      identifier: normalizeLoginIdentifier(payload.identifier),
+      phone: String(payload.phone || "").trim().replace(/\s+/g, ""),
+      email: String(payload.email || "").trim().toLowerCase(),
       password: payload.password,
-      name: payload.name.trim(),
+      name: String(payload.name || "").trim(),
     };
 
     if (!validate(finalPayload)) return;
@@ -107,12 +131,22 @@ const Login = () => {
 
     try {
       if (isRegister) {
-        await dispatch(actions.register(finalPayload, { rememberMe }));
+        await dispatch(
+          actions.register(
+            {
+              name: finalPayload.name,
+              phone: finalPayload.phone,
+              email: finalPayload.email,
+              password: finalPayload.password,
+            },
+            { rememberMe },
+          ),
+        );
       } else {
         await dispatch(
           actions.login(
             {
-              phone: finalPayload.phone,
+              identifier: finalPayload.identifier,
               password: finalPayload.password,
             },
             { rememberMe },
@@ -153,7 +187,7 @@ const Login = () => {
               <p className="max-w-[480px] text-[15px] leading-7 text-slate-500">
                 {isRegister
                   ? "Điền thông tin cơ bản để bắt đầu đăng tin và quản lý tài khoản trên giao diện gọn gàng, dễ sử dụng."
-                  : "Đăng nhập để tiếp tục quản lý bài đăng, thông tin cá nhân và các thao tác trong hệ thống."}
+                  : "Đăng nhập bằng email hoặc số điện thoại để tiếp tục quản lý bài đăng, thông tin cá nhân và các thao tác trong hệ thống."}
               </p>
             </div>
           </div>
@@ -189,19 +223,30 @@ const Login = () => {
                   inputMode="numeric"
                   maxLength={11}
                 />
+                <div className="sm:col-span-2">
+                  <InputForm
+                    label="Email"
+                    placeholder="Ví dụ: ban@example.com"
+                    value={payload.email}
+                    setValue={setPayload}
+                    keyPayload="email"
+                    invalidFields={invalidFields}
+                    setInvalidFields={setInvalidFields}
+                    autoComplete="email"
+                    type="email"
+                  />
+                </div>
               </div>
             ) : (
               <InputForm
-                label="Số điện thoại"
-                placeholder="Ví dụ: 0912345678"
-                value={payload.phone}
+                label="Email hoặc SĐT"
+                placeholder="Nhập email hoặc số điện thoại"
+                value={payload.identifier}
                 setValue={setPayload}
-                keyPayload="phone"
+                keyPayload="identifier"
                 invalidFields={invalidFields}
                 setInvalidFields={setInvalidFields}
-                autoComplete="tel"
-                inputMode="numeric"
-                maxLength={11}
+                autoComplete="username"
               />
             )}
 
@@ -271,7 +316,7 @@ const Login = () => {
 
             {!isRegister && (
               <p className="text-sm leading-6 text-slate-400">
-                Nếu quên mật khẩu, vui lòng dùng số điện thoại đã đăng ký để
+                Nếu quên mật khẩu, vui lòng dùng email hoặc số điện thoại đã đăng ký để
                 được hỗ trợ.
               </p>
             )}

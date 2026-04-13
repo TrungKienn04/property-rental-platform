@@ -2,6 +2,11 @@ import actionTypes from "./actionTypes";
 import { apiRegister, apiLogin } from "../../services/auth";
 import { apiGetCurrent } from "../../services/user";
 
+const {
+  extractRoleFromToken,
+  normalizeRole,
+} = require("../../ultils/Common/authHelpers");
+
 const AUTH_STORAGE_MODE_KEY = "APP_TOKEN_STORAGE";
 
 const persistToken = (token, rememberMe = true) => {
@@ -31,10 +36,19 @@ const clearAuthStorage = () => {
 const syncCurrentUser = async (dispatch) => {
   try {
     const response = await apiGetCurrent();
+    const currentData = response?.data?.err === 0 ? response.data.response : {};
+
     dispatch({
       type: actionTypes.GET_CURRENT,
-      currentData: response?.data?.err === 0 ? response.data.response : {},
+      currentData,
     });
+
+    if (currentData?.role) {
+      dispatch({
+        type: actionTypes.SET_AUTH_ROLE,
+        data: normalizeRole(currentData.role),
+      });
+    }
   } catch (error) {
     dispatch({
       type: actionTypes.GET_CURRENT,
@@ -44,11 +58,14 @@ const syncCurrentUser = async (dispatch) => {
 };
 
 const handleAuthSuccess = async (dispatch, type, token, rememberMe = true) => {
+  const nextRole = extractRoleFromToken(token) || "user";
+
   persistToken(token, rememberMe);
 
   dispatch({
     type,
     data: token,
+    role: nextRole,
   });
 
   await syncCurrentUser(dispatch);

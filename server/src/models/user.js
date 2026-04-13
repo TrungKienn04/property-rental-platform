@@ -18,6 +18,22 @@ module.exports = (sequelize, DataTypes) => {
     name: DataTypes.STRING,
     password: DataTypes.STRING,
     phone: DataTypes.STRING,
+    email: {
+      type: DataTypes.STRING,
+      unique: true,
+      allowNull: true,
+      validate: {
+        isEmail: true,
+      },
+    },
+    role: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'user',
+      validate: {
+        isIn: [['user', 'admin']],
+      },
+    },
     zalo: DataTypes.STRING,
     fbUrl: DataTypes.STRING,
     avatar: DataTypes.BLOB,

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect } from "react";
 import { Button, Item } from "../../components";
 import {
   createSearchParams,
@@ -7,7 +7,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { getPostsLimit } from "../../store/actions/post";
+import * as actions from "../../store/actions";
 
 const {
   buildSearchParamsObject,
@@ -21,14 +21,26 @@ const List = ({ categoryCode }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  useEffect(() => {
+  const refreshVisiblePosts = useCallback(async () => {
     const currentQuery = buildSearchParamsObject(searchParams);
     const nextQuery = mergeQueryValues(currentQuery, {
       categoryCode,
     });
 
-    dispatch(getPostsLimit(nextQuery));
-  }, [searchParams, categoryCode, dispatch]);
+    await dispatch(actions.getPostsLimit(nextQuery));
+  }, [categoryCode, dispatch, searchParams]);
+
+  useEffect(() => {
+    refreshVisiblePosts();
+  }, [refreshVisiblePosts]);
+
+  const handleDeleteSuccess = useCallback(async () => {
+    await Promise.all([
+      dispatch(actions.getPosts()),
+      dispatch(actions.getNewPosts()),
+      refreshVisiblePosts(),
+    ]);
+  }, [dispatch, refreshVisiblePosts]);
 
   const updateSort = (sort) => {
     const currentQuery = buildSearchParamsObject(searchParams);
@@ -44,31 +56,40 @@ const List = ({ categoryCode }) => {
   };
 
   return (
-    <section className="surface-card rounded-[32px] p-4 lg:p-6">
+    <section id="post-list" className="surface-card rounded-[32px] p-4 lg:p-6">
       <div className="mb-5 flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="space-y-1">
           <h4 className="text-2xl font-extrabold text-slate-900">
             Danh sách tin đăng
           </h4>
-          <span className="text-sm text-slate-500">
-            Ưu tiên bố cục dễ đọc, thao tác nhanh và hiển thị rõ thông tin chính.
-          </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="mr-1 text-sm font-semibold text-slate-500">
             Sắp xếp
           </span>
           <Button
-            bgColor={!searchParams.get("sort") ? "bg-slate-900" : "bg-slate-100"}
+            bgColor={
+              !searchParams.get("sort") ? "bg-slate-900" : "bg-slate-100"
+            }
             text="Mặc định"
-            textColor={!searchParams.get("sort") ? "text-white" : "text-slate-700"}
+            textColor={
+              !searchParams.get("sort") ? "text-white" : "text-slate-700"
+            }
             className="min-h-[42px] text-sm shadow-none hover:shadow-sm"
             onClick={() => updateSort(null)}
           />
           <Button
-            bgColor={searchParams.get("sort") === "latest" ? "bg-amber-400" : "bg-slate-100"}
+            bgColor={
+              searchParams.get("sort") === "latest"
+                ? "bg-amber-400"
+                : "bg-slate-100"
+            }
             text="Mới nhất"
-            textColor={searchParams.get("sort") === "latest" ? "text-slate-950" : "text-slate-700"}
+            textColor={
+              searchParams.get("sort") === "latest"
+                ? "text-slate-950"
+                : "text-slate-700"
+            }
             className="min-h-[42px] text-sm shadow-none hover:shadow-sm"
             onClick={() => updateSort("latest")}
           />
@@ -87,7 +108,9 @@ const List = ({ categoryCode }) => {
               star={+item?.star}
               title={item?.title}
               user={item?.user}
+              userId={item?.userId}
               id={item?.id}
+              onDeleteSuccess={handleDeleteSuccess}
             />
           ))
         ) : (

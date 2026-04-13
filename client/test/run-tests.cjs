@@ -10,6 +10,14 @@ const {
   getPrimaryImage,
   getShortAddress,
 } = require("../src/ultils/Common/postHelpers");
+const {
+  extractRoleFromToken,
+  normalizeLoginIdentifier,
+} = require("../src/ultils/Common/authHelpers");
+const {
+  canDeletePost,
+  canEditManagedPost,
+} = require("../src/ultils/Common/postPermissions");
 
 const tests = [
   {
@@ -81,6 +89,78 @@ const tests = [
     name: "getPrimaryImage uses fallback for empty arrays",
     run() {
       assert.equal(getPrimaryImage([], "/fallback.svg"), "/fallback.svg");
+    },
+  },
+  {
+    name: "normalizeLoginIdentifier supports both email and phone login",
+    run() {
+      assert.equal(
+        normalizeLoginIdentifier(" ADMIN@Example.com "),
+        "admin@example.com",
+      );
+      assert.equal(
+        normalizeLoginIdentifier("090 123 4567"),
+        "0901234567",
+      );
+    },
+  },
+  {
+    name: "extractRoleFromToken reads role from JWT payload",
+    run() {
+      const payload = Buffer.from(
+        JSON.stringify({ id: "admin-1", role: "admin" }),
+      ).toString("base64url");
+      const token = `header.${payload}.signature`;
+
+      assert.equal(extractRoleFromToken(token), "admin");
+    },
+  },
+  {
+    name: "canDeletePost allows admin on any post and user on own post only",
+    run() {
+      assert.equal(
+        canDeletePost({
+          role: "admin",
+          currentUserId: "user-1",
+          post: { id: "post-1", userId: "user-2" },
+        }),
+        true,
+      );
+      assert.equal(
+        canDeletePost({
+          role: "user",
+          currentUserId: "user-1",
+          post: { id: "post-1", userId: "user-1" },
+        }),
+        true,
+      );
+      assert.equal(
+        canDeletePost({
+          role: "user",
+          currentUserId: "user-1",
+          post: { id: "post-1", userId: "user-2" },
+        }),
+        false,
+      );
+    },
+  },
+  {
+    name: "canEditManagedPost only allows the post owner to edit",
+    run() {
+      assert.equal(
+        canEditManagedPost({
+          currentUserId: "user-1",
+          post: { id: "post-1", userId: "user-1" },
+        }),
+        true,
+      );
+      assert.equal(
+        canEditManagedPost({
+          currentUserId: "user-1",
+          post: { id: "post-1", userId: "user-2" },
+        }),
+        false,
+      );
     },
   },
 ];

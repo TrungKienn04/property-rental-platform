@@ -1,4 +1,17 @@
+const path = require("path");
+
+process.env.NODE_ENV = "test";
+process.env.SECRET_KEY = "test-secret";
+
+require("@babel/register")({
+  cwd: path.resolve(__dirname, ".."),
+  extensions: [".js"],
+  ignore: [/node_modules/],
+});
+
 const assert = require("node:assert/strict");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const { Op } = require("sequelize");
 const {
   buildPostWhereClause,
@@ -16,6 +29,14 @@ const {
   parsePriceValue,
   resolveRangeCode,
 } = require("../src/ultis/priceAreaCode");
+const db = require("../src/models");
+const authService = require("../src/services/auth");
+const userService = require("../src/services/user");
+const postService = require("../src/services/post");
+const verifyTokenModule = require("../src/middlewares/verifyToken");
+
+const verifyToken = verifyTokenModule.default;
+const { isAdmin } = verifyTokenModule;
 
 const provinces = [
   { code: "TPHCM", value: "Ho Chi Minh" },
@@ -42,6 +63,57 @@ const areas = [
   { code: "7UMD", value: "Tu 70m - 90m", order: 5 },
   { code: "EN9E", value: "Tren 90m", order: 6 },
 ];
+
+const createMockResponse = () => {
+  const response = {
+    statusCode: 200,
+    body: null,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.body = payload;
+      return this;
+    },
+  };
+
+  return response;
+};
+
+const loadFreshModule = (relativePath) => {
+  const resolved = require.resolve(relativePath);
+  delete require.cache[resolved];
+  return require(relativePath);
+};
+
+const withPatched = async (target, patches, run) => {
+  const originals = {};
+
+  Object.entries(patches).forEach(([key, value]) => {
+    originals[key] = target[key];
+    target[key] = value;
+  });
+
+  try {
+    return await run();
+  } finally {
+    Object.entries(originals).forEach(([key, value]) => {
+      target[key] = value;
+    });
+  }
+};
+
+const createTransaction = () => ({
+  committed: false,
+  rolledBack: false,
+  async commit() {
+    this.committed = true;
+  },
+  async rollback() {
+    this.rolledBack = true;
+  },
+});
 
 const tests = [
   {
@@ -175,20 +247,428 @@ const tests = [
       ]);
     },
   },
+  {
+    name: "registerService stores normalized email, hashed password and user role",
+    async run() {
+      const createdUsers = [];
+
+      await withPatched(
+        db.User,
+        {
+          findOne: async () => null,
+          create: async (payload) => {
+            createdUsers.push(payload);
+            return payload;
+          },
+        },
+        async () => {
+          const response = await authService.registerService({
+            name: "Admin Candidate",
+            phone: "090 123 4567",
+            email: "ADMIN@EXAMPLE.COM",
+            password: "secret12",
+            role: "admin",
+          });
+
+          assert.equal(response.err, 0);
+          assert.equal(createdUsers.length, 1);
+          assert.equal(createdUsers[0].phone, "0901234567");
+          assert.equal(createdUsers[0].email, "admin@example.com");
+          assert.equal(createdUsers[0].role, "user");
+          assert.notEqual(createdUsers[0].password, "secret12");
+          assert.equal(
+            bcrypt.compareSync("secret12", createdUsers[0].password),
+            true,
+          );
+
+          const payload = jwt.verify(response.token, process.env.SECRET_KEY);
+          assert.equal(payload.id, createdUsers[0].id);
+          assert.equal(payload.role, "user");
+          assert.equal(payload.phone, undefined);
+        },
+      );
+    },
+  },
+  {
+    name: "registerService rejects duplicated email from new or legacy records",
+    async run() {
+      await withPatched(
+        db.User,
+        {
+          findOne: async ({ where }) => {
+            if (where.phone) return null;
+            if (where[Op.or]) {
+              return { id: "existing-user", fbUrl: "taken@example.com" };
+            }
+            return null;
+          },
+        },
+        async () => {
+          const response = await authService.registerService({
+            name: "User",
+            phone: "0901234567",
+            email: "taken@example.com",
+            password: "secret12",
+          });
+
+          assert.equal(response.err, 2);
+          assert.equal(response.token, null);
+        },
+      );
+    },
+  },
+  {
+    name: "loginService supports email login and embeds role in JWT",
+    async run() {
+      const hash = bcrypt.hashSync("secret12", bcrypt.genSaltSync(12));
+
+      await withPatched(
+        db.User,
+        {
+          findAll: async ({ where }) => {
+            assert.deepEqual(where[Op.or], [
+              { email: "admin@example.com" },
+              { fbUrl: "admin@example.com" },
+            ]);
+
+            return [{
+              id: "admin-1",
+              email: "admin@example.com",
+              role: "admin",
+              password: hash,
+            }];
+          },
+        },
+        async () => {
+          const response = await authService.loginService({
+            identifier: "ADMIN@example.com",
+            password: "secret12",
+          });
+
+          assert.equal(response.err, 0);
+          const payload = jwt.verify(response.token, process.env.SECRET_KEY);
+          assert.equal(payload.id, "admin-1");
+          assert.equal(payload.role, "admin");
+        },
+      );
+    },
+  },
+  {
+    name: "loginService resolves legacy duplicate phones by password match",
+    async run() {
+      const wrongHash = bcrypt.hashSync("other-pass", bcrypt.genSaltSync(12));
+      const correctHash = bcrypt.hashSync("secret12", bcrypt.genSaltSync(12));
+
+      await withPatched(
+        db.User,
+        {
+          findAll: async ({ where }) => {
+            assert.deepEqual(where, { phone: "0901234567" });
+            return [
+              { id: "legacy-a", role: "user", password: wrongHash },
+              { id: "legacy-b", role: "user", password: correctHash },
+            ];
+          },
+        },
+        async () => {
+          const response = await authService.loginService({
+            identifier: "0901234567",
+            password: "secret12",
+          });
+
+          assert.equal(response.err, 0);
+          const payload = jwt.verify(response.token, process.env.SECRET_KEY);
+          assert.equal(payload.id, "legacy-b");
+          assert.equal(payload.role, "user");
+        },
+      );
+    },
+  },
+  {
+    name: "verifyToken reads bearer token and attaches req.user",
+    run() {
+      const token = jwt.sign(
+        { id: "user-1", role: "admin" },
+        process.env.SECRET_KEY,
+        { expiresIn: "2d" },
+      );
+      const req = {
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      };
+      const res = createMockResponse();
+      let nextCalled = false;
+
+      verifyToken(req, res, () => {
+        nextCalled = true;
+      });
+
+      assert.equal(nextCalled, true);
+      assert.equal(req.user.id, "user-1");
+      assert.equal(req.user.role, "admin");
+      assert.equal(res.body, null);
+    },
+  },
+  {
+    name: "isAdmin blocks non-admin users with 403",
+    run() {
+      const req = { user: { id: "user-1", role: "user" } };
+      const res = createMockResponse();
+      let nextCalled = false;
+
+      isAdmin(req, res, () => {
+        nextCalled = true;
+      });
+
+      assert.equal(nextCalled, false);
+      assert.equal(res.statusCode, 403);
+      assert.deepEqual(res.body, {
+        err: 1,
+        msg: "Forbidden",
+      });
+    },
+  },
+  {
+    name: "manage posts controller returns all posts for admin",
+    async run() {
+      const postServiceModule = require("../src/services/post");
+
+      await withPatched(
+        postServiceModule,
+        {
+          getAllManagedPostsService: async () => ({
+            err: 0,
+            msg: "OK",
+            response: [{ id: "post-admin" }],
+          }),
+          getPostsByUserService: async () => ({
+            err: 0,
+            msg: "OK",
+            response: [{ id: "post-user" }],
+          }),
+        },
+        async () => {
+          const postController = loadFreshModule("../src/controllers/post");
+          const res = createMockResponse();
+
+          await postController.getPostsByCurrentUser(
+            { user: { id: "admin-1", role: "admin" } },
+            res,
+          );
+
+          assert.equal(res.statusCode, 200);
+          assert.deepEqual(res.body.response, [{ id: "post-admin" }]);
+        },
+      );
+    },
+  },
+  {
+    name: "getPostsLimitService keeps userId for role-aware public actions",
+    async run() {
+      await withPatched(
+        db.Post,
+        {
+          findAll: async () => [
+            {
+              id: "post-1",
+              userId: "user-9",
+              title: "Phong dep",
+              star: 0,
+              address: "Quan 1, Ho Chi Minh",
+              description: JSON.stringify(["Dong 1"]),
+              images: { image: JSON.stringify(["img-1"]) },
+              attributes: { price: "3 trieu", acreage: "20m2" },
+              user: {
+                name: "Owner",
+                phone: "0901234567",
+                email: "owner@example.com",
+                fbUrl: "",
+              },
+            },
+          ],
+          count: async () => 1,
+        },
+        async () => {
+          const response = await postService.getPostsLimitService(1, {}, {});
+          const firstPost = response.response.rows[0];
+
+          assert.equal(firstPost.userId, "user-9");
+          assert.equal(firstPost.user.email, "owner@example.com");
+        },
+      );
+    },
+  },
+  {
+    name: "deletePostService still prevents deleting another user's post",
+    async run() {
+      const transaction = createTransaction();
+
+      await withPatched(
+        db.sequelize,
+        {
+          transaction: async () => transaction,
+        },
+        async () => {
+          await withPatched(
+            db.Post,
+            {
+              findOne: async ({ where }) => {
+                assert.deepEqual(where, {
+                  id: "post-1",
+                  userId: "user-1",
+                });
+                return null;
+              },
+            },
+            async () => {
+              const response = await postService.deletePostService("post-1", "user-1");
+
+              assert.equal(response.err, 1);
+              assert.equal(transaction.rolledBack, true);
+              assert.equal(transaction.committed, false);
+            },
+          );
+        },
+      );
+    },
+  },
+  {
+    name: "forceDeletePostService deletes post and related records in one transaction",
+    async run() {
+      const transaction = createTransaction();
+      const destroyCalls = [];
+
+      await withPatched(
+        db.sequelize,
+        {
+          transaction: async () => transaction,
+        },
+        async () => {
+          await withPatched(
+            db.Post,
+            {
+              findOne: async ({ where }) => {
+                assert.deepEqual(where, { id: "post-1" });
+                return {
+                  id: "post-1",
+                  imagesId: "img-1",
+                  attributesId: "attr-1",
+                  overviewId: "overview-1",
+                };
+              },
+              destroy: async ({ where }) => {
+                destroyCalls.push({ model: "Post", where });
+              },
+            },
+            async () => {
+              await withPatched(
+                db.Image,
+                {
+                  destroy: async ({ where }) => {
+                    destroyCalls.push({ model: "Image", where });
+                  },
+                },
+                async () => {
+                  await withPatched(
+                    db.Attribute,
+                    {
+                      destroy: async ({ where }) => {
+                        destroyCalls.push({ model: "Attribute", where });
+                      },
+                    },
+                    async () => {
+                      await withPatched(
+                        db.Overview,
+                        {
+                          destroy: async ({ where }) => {
+                            destroyCalls.push({ model: "Overview", where });
+                          },
+                        },
+                        async () => {
+                          const response = await postService.forceDeletePostService("post-1");
+
+                          assert.equal(response.err, 0);
+                          assert.equal(transaction.committed, true);
+                          assert.equal(transaction.rolledBack, false);
+                          assert.deepEqual(destroyCalls, [
+                            { model: "Post", where: { id: "post-1" } },
+                            { model: "Image", where: { id: "img-1" } },
+                            { model: "Attribute", where: { id: "attr-1" } },
+                            { model: "Overview", where: { id: "overview-1" } },
+                          ]);
+                        },
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          );
+        },
+      );
+    },
+  },
+  {
+    name: "promoteUserToAdmin updates role and strips password from response",
+    async run() {
+      let saved = false;
+      const model = {
+        id: "user-1",
+        role: "user",
+        email: "user@example.com",
+        password: "hashed-password",
+        async save() {
+          saved = true;
+        },
+        get() {
+          return {
+            id: this.id,
+            role: this.role,
+            email: this.email,
+            password: this.password,
+          };
+        },
+      };
+
+      await withPatched(
+        db.User,
+        {
+          findOne: async ({ where }) => {
+            assert.deepEqual(where, { id: "user-1" });
+            return model;
+          },
+        },
+        async () => {
+          const response = await userService.promoteUserToAdmin("user-1");
+
+          assert.equal(response.err, 0);
+          assert.equal(saved, true);
+          assert.equal(model.role, "admin");
+          assert.equal(response.response.role, "admin");
+          assert.equal("password" in response.response, false);
+        },
+      );
+    },
+  },
 ];
 
-let passed = 0;
+(async () => {
+  let passed = 0;
 
-tests.forEach(({ name, run }, index) => {
-  try {
-    run();
-    passed += 1;
-    console.log(`${index + 1}. PASS ${name}`);
-  } catch (error) {
-    console.error(`${index + 1}. FAIL ${name}`);
-    console.error(error);
-    process.exit(1);
+  for (let index = 0; index < tests.length; index += 1) {
+    const { name, run } = tests[index];
+
+    try {
+      await run();
+      passed += 1;
+      console.log(`${index + 1}. PASS ${name}`);
+    } catch (error) {
+      console.error(`${index + 1}. FAIL ${name}`);
+      console.error(error);
+      process.exit(1);
+    }
   }
-});
 
-console.log(`All ${passed} backend tests passed.`);
+  console.log(`All ${passed} backend tests passed.`);
+})();

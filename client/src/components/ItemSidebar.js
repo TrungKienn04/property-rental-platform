@@ -1,8 +1,6 @@
 import React, { memo } from "react";
 import icons from "../ultils/icons";
-import { formatVietnameseToString } from "../ultils/Common/formatVietnameseToString";
 import {
-  Link,
   createSearchParams,
   useLocation,
   useNavigate,
@@ -40,9 +38,11 @@ const ItemSidebar = ({ title, content, isDouble, type }) => {
       resetPatch.areaNumber = null;
     }
 
+    const key = type || "categoryCode";
+
     const nextQuery = mergeQueryValues(currentQuery, {
       ...resetPatch,
-      [type]: code,
+      [key]: code,
       page: 1,
     });
 
@@ -50,42 +50,49 @@ const ItemSidebar = ({ title, content, isDouble, type }) => {
       pathname: location.pathname,
       search: createSearchParams(nextQuery).toString(),
     });
+
+    try {
+      const el = document.getElementById("post-list");
+      if (el) {
+        // small timeout to allow navigation/render
+        setTimeout(
+          () => el.scrollIntoView({ behavior: "smooth", block: "start" }),
+          50,
+        );
+        return;
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const isActiveCode = (code) => currentQuery[type] === code;
+  const isActiveCode = (code) => currentQuery[type || "categoryCode"] === code;
 
   return (
     <div className="surface-card w-full rounded-[28px] p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h3 className="text-lg font-bold text-slate-900">{title}</h3>
-        {type && currentQuery[type] && (
-          <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-            Đang lọc
-          </span>
-        )}
       </div>
 
       {!isDouble && (
         <div className="flex flex-col gap-2">
-          {content?.map((item) => {
-            const pathname = `/${formatVietnameseToString(item.value)}`;
-            const isActive = location.pathname === pathname;
-
-            return (
-              <Link
-                to={pathname}
-                key={item.code}
-                className={`flex items-center gap-2 rounded-2xl px-3 py-3 text-sm font-medium transition ${
-                  isActive
-                    ? "bg-amber-50 text-amber-700"
-                    : "text-slate-600 hover:bg-amber-50 hover:text-amber-700"
-                }`}
-              >
-                <GrNext size={10} />
-                <p>{item.value}</p>
-              </Link>
-            );
-          })}
+          {content?.map((item) => (
+            <button
+              type="button"
+              key={item.code}
+              onClick={() => handleFilterPosts(item.code)}
+              className={`flex items-center gap-2 rounded-2xl px-3 py-3 text-sm font-medium transition ${
+                isActiveCode(item.code)
+                  ? "border-amber-200 bg-amber-50 text-amber-700 shadow-sm"
+                  : "text-slate-600 hover:bg-amber-50 hover:text-amber-700"
+              }`}
+            >
+              <GrNext size={10} />
+              <p>{item.value}</p>
+            </button>
+          ))}
         </div>
       )}
 

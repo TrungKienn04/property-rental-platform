@@ -3,6 +3,7 @@ import actionTypes from "../actions/actionTypes";
 const initState = {
     isLoggedIn: false,
     token: null,
+    role: null,
     msg: '',
     update: false
 }
@@ -15,7 +16,13 @@ const authReducer = (state = initState, action) => {
                 ...state,
                 isLoggedIn: true,
                 token: action.data,
+                role: action.role || state.role || 'user',
                 msg: ''
+            }
+        case actionTypes.SET_AUTH_ROLE:
+            return {
+                ...state,
+                role: action.data || state.role || null
             }
         case actionTypes.REGISTER_FAIL:
         case actionTypes.LOGIN_FAIL:
@@ -24,6 +31,7 @@ const authReducer = (state = initState, action) => {
                 isLoggedIn: false,
                 msg: action.data,
                 token: null,
+                role: null,
                 update: !state.update
             }
         case actionTypes.LOGOUT:
@@ -31,6 +39,7 @@ const authReducer = (state = initState, action) => {
                 ...state,
                 isLoggedIn: false,
                 token: null,
+                role: null,
                 msg: ''
             }
 

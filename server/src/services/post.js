@@ -34,7 +34,7 @@ const publicPostIncludes = [
   {
     model: db.User,
     as: "user",
-    attributes: ["name", "zalo", "phone", "fbUrl"],
+    attributes: ["name", "zalo", "phone", "email", "fbUrl"],
   },
 ];
 
@@ -52,7 +52,7 @@ const mapUserResponse = (user) => {
 
   return {
     ...user,
-    email: user?.fbUrl || "",
+    email: user?.email || user?.fbUrl || "",
   };
 };
 
@@ -163,7 +163,7 @@ export const getPostsService = () =>
         raw: true,
         nest: true,
         include: publicPostIncludes,
-        attributes: ["id", "title", "star", "address", "description"],
+        attributes: ["id", "title", "star", "address", "description", "userId"],
       });
 
       resolve({
@@ -198,7 +198,7 @@ export const getPostsLimitService = (
         limit: +process.env.LIMIT,
         order: [["createdAt", "DESC"]],
         include: publicPostIncludes,
-        attributes: ["id", "title", "star", "address", "description"],
+        attributes: ["id", "title", "star", "address", "description", "userId"],
       };
 
       console.log(
@@ -259,6 +259,7 @@ export const getPostByIdService = (id) =>
           "star",
           "address",
           "description",
+          "userId",
           "createdAt",
         ],
       });
@@ -377,6 +378,42 @@ export const getPostsByUserService = (userId) =>
           "provinceCode",
           "priceNumber",
           "areaNumber",
+          "createdAt",
+          "updatedAt",
+        ],
+      });
+
+      resolve({
+        err: 0,
+        msg: "OK",
+        response: (response || []).map(mapPostResponse),
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+export const getAllManagedPostsService = () =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await db.Post.findAll({
+        raw: true,
+        nest: true,
+        order: [["createdAt", "DESC"]],
+        include: managementPostIncludes,
+        attributes: [
+          "id",
+          "title",
+          "star",
+          "address",
+          "description",
+          "categoryCode",
+          "priceCode",
+          "areaCode",
+          "provinceCode",
+          "priceNumber",
+          "areaNumber",
+          "userId",
           "createdAt",
           "updatedAt",
         ],
@@ -544,6 +581,48 @@ export const deletePostService = (postId, userId) =>
       await transaction.commit();
 
       resolve({
+        err: 0,
+        msg: "OK",
+      });
+    } catch (error) {
+      await transaction.rollback();
+      reject(error);
+    }
+  });
+
+export const forceDeletePostService = (postId) =>
+  new Promise(async (resolve, reject) => {
+    const transaction = await db.sequelize.transaction();
+
+    try {
+      const post = await db.Post.findOne({
+        where: { id: postId },
+        raw: true,
+        transaction,
+      });
+
+      if (!post) {
+        await transaction.rollback();
+        return resolve({
+          err: 1,
+          msg: "Khong tim thay tin dang can xoa.",
+        });
+      }
+
+      await db.Post.destroy({
+        where: { id: postId },
+        transaction,
+      });
+
+      await Promise.all([
+        db.Image.destroy({ where: { id: post.imagesId }, transaction }),
+        db.Attribute.destroy({ where: { id: post.attributesId }, transaction }),
+        db.Overview.destroy({ where: { id: post.overviewId }, transaction }),
+      ]);
+
+      await transaction.commit();
+
+      return resolve({
         err: 0,
         msg: "OK",
       });

@@ -26,7 +26,7 @@ app.use(
 
       return callback(new Error("Not allowed by CORS"));
     },
-    methods: ["POST", "GET", "PUT", "DELETE"],
+    methods: ["POST", "GET", "PUT", "PATCH", "DELETE"],
     credentials: true,
   }),
 );
@@ -85,6 +85,46 @@ connectDatabase().then(async () => {
       if (!userDesc.avatar) {
         await queryInterface.addColumn("Users", "avatar", db.Sequelize.BLOB("long"));
         console.log("Added Users.avatar column");
+      }
+
+      if (!userDesc.email) {
+        await queryInterface.addColumn("Users", "email", {
+          type: db.Sequelize.STRING,
+          allowNull: true,
+        });
+        console.log("Added Users.email column");
+      }
+
+      if (!userDesc.role) {
+        await queryInterface.addColumn("Users", "role", {
+          type: db.Sequelize.STRING,
+          allowNull: false,
+          defaultValue: "user",
+        });
+        console.log("Added Users.role column");
+      }
+
+      await db.sequelize.query(`
+        UPDATE Users
+        SET role = 'user'
+        WHERE role IS NULL OR role = ''
+      `);
+
+      const userIndexes = await queryInterface.showIndex("Users");
+      const hasEmailUniqueIndex = userIndexes.some(
+        (index) =>
+          index.unique
+          && Array.isArray(index.fields)
+          && index.fields.length === 1
+          && index.fields[0]?.attribute === "email",
+      );
+
+      if (!hasEmailUniqueIndex) {
+        await queryInterface.addIndex("Users", ["email"], {
+          unique: true,
+          name: "users_email_unique",
+        });
+        console.log("Added Users.email unique index");
       }
     } catch (error) {
       console.error(

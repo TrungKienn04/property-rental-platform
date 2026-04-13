@@ -26,11 +26,11 @@ const ProvinceBtn = ({ name, image, code }) => {
       page: 1,
     });
 
-        navigate(
-          {
-            pathname: `/${path.SEARCH}`,
-            search: createSearchParams(nextQuery).toString(),
-          },
+    navigate(
+      {
+        pathname: `/${path.SEARCH}`,
+        search: createSearchParams(nextQuery).toString(),
+      },
       {
         state: {
           titleSearch: `Cho thuê tại ${name}`,
@@ -75,9 +75,6 @@ const ProvinceBtn = ({ name, image, code }) => {
           )}
         </div>
         <div className="text-lg font-bold text-slate-900">{name}</div>
-        <p className="text-sm leading-7 text-slate-500">
-          Chuyển danh sách bên dưới sang khu vực này mà không làm mất cụm nổi bật.
-        </p>
       </div>
     </button>
   );

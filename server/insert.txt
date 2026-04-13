@@ -89,3 +89,19 @@ Bạn muốn tôi hướng dẫn từng bước (với ảnh màn hình) cho:
 - Import SQL qua phpMyAdmin ?
 
 Chọn 1 phương án, tôi sẽ gửi hướng dẫn chi tiết tiếp theo.
+
+====tài khoản admin====
+Họ và tên
+Ta Trung Kien
+Số điện thoại
+0358711168
+Email
+admin@gmail.com
+Mật khẩu
+Mật khẩu cần tối thiểu 6 ký tự.
+
+•••••••••••••••••••
+
+Ghi nhớ đăng nhập sau khi tạo tài khoản
+
+

@@ -1,5 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { createSearchParams, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  createSearchParams,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import { useSelector } from "react-redux";
 import icons from "../../ultils/icons";
 import { PageNumber } from "../../components";
@@ -59,6 +64,17 @@ const Pagination = () => {
       pathname: location.pathname,
       search: createSearchParams(nextQuery).toString(),
     });
+    // scroll to posts list for better UX
+    try {
+      const el = document.getElementById("post-list");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+    } catch (e) {
+      // ignore
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   if (totalPages <= 1) return null;

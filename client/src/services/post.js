@@ -122,3 +122,16 @@ export const apiDeletePost = (postId) =>
       reject(error);
     }
   });
+
+export const apiForceDeletePost = (postId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosConfig({
+        method: "delete",
+        url: `/api/v1/admin/post/${postId}/force`,
+      });
+      resolve(response);
+    } catch (error) {
+      reject(error);
+    }
+  });

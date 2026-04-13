@@ -1,26 +1,44 @@
-import icons from './icons'
+import icons from "./icons";
+import { path } from "./constant";
 
-const { ImPencil2, MdOutlineLibraryBooks, BiUserPin } = icons
+const { isAdminRole } = require("./Common/authHelpers");
 
-const menuManage = [
-    {
-        id: 1,
-        text: 'Đăng tin cho thuê',
-        path: '/he-thong/tao-moi-bai-dang',
-        icon: <ImPencil2 />
-    },
-    {
-        id: 2,
-        text: 'Quản lý tin đăng',
-        path: '/he-thong/quan-ly-bai-dang',
-        icon: <MdOutlineLibraryBooks />
-    },
-    {
-        id: 4,
-        text: 'Thông tin tài khoản',
-        path: '/he-thong/thong-tin-tai-khoan',
-        icon: <BiUserPin />
-    }
-]
+const { ImPencil2, MdOutlineLibraryBooks, BiUserPin } = icons;
 
-export default menuManage
+const createPostItem = {
+  id: "header-create-post",
+  text: "Đăng tin cho thuê",
+  path: `/he-thong/${path.CREATE_POST}`,
+  icon: <ImPencil2 />,
+};
+
+const editProfileItem = {
+  id: "header-edit-profile",
+  text: "Sửa thông tin cá nhân",
+  path: `/he-thong/${path.EDIT_PROFILE}`,
+  icon: <BiUserPin />,
+};
+
+const getMenuManage = (role) => {
+  const manageItem = isAdminRole(role)
+    ? {
+        id: "header-manage-all-posts",
+        text: "Quản lý tất cả bài đăng",
+        path: `/he-thong/${path.MANAGE_POSTS}`,
+        icon: <MdOutlineLibraryBooks />,
+        highlight: true,
+        badge: "Admin",
+      }
+    : {
+        id: "header-manage-own-posts",
+        text: "Quản lý bài của tôi",
+        path: `/he-thong/${path.MANAGE_POSTS}`,
+        icon: <MdOutlineLibraryBooks />,
+      };
+
+  return isAdminRole(role)
+    ? [manageItem, createPostItem, editProfileItem]
+    : [createPostItem, manageItem, editProfileItem];
+};
+
+export default getMenuManage;

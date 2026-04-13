@@ -1,15 +1,26 @@
 import db from "../models";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { Op } from "sequelize";
 
 require("dotenv").config();
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+const PHONE_REGEX = /^0\d{8,10}$/;
+
+const normalizePhone = (phone) =>
+  String(phone || "")
+    .trim()
+    .replace(/\s+/g, "");
+
+const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 
 const hashPassword = (password) =>
   bcrypt.hashSync(password, bcrypt.genSaltSync(12));
 
 const createAccessToken = (user) =>
   jwt.sign(
-    { id: user.id, phone: user.phone },
+    { id: user.id, role: user.role || "user" },
     process.env.SECRET_KEY || "secret",
     { expiresIn: "2d" },
   );
@@ -17,9 +28,11 @@ const createAccessToken = (user) =>
 const mapUserResponse = (user) => {
   if (!user) return user;
 
+  const { password, ...userData } = user;
+
   return {
-    ...user,
-    email: user?.fbUrl || "",
+    ...userData,
+    email: userData?.email || userData?.fbUrl || "",
   };
 };
 
@@ -36,7 +49,7 @@ export const getOne = (id) =>
       });
       resolve({
         err: response ? 0 : 1,
-        msg: response ? "OK" : "Failed to get provinces.",
+        msg: response ? "OK" : "Failed to get user.",
         response: mapUserResponse(response),
       });
     } catch (error) {
@@ -54,60 +67,74 @@ export const updateCurrentUser = (id, payload = {}) =>
       if (!user) {
         return resolve({
           err: 1,
-          msg: "Kh\u00f4ng t\u00ecm th\u1ea5y t\u00e0i kho\u1ea3n.",
+          msg: "Khong tim thay tai khoan.",
           response: null,
           token: null,
         });
       }
 
       const normalizedName = String(payload.name || "").trim();
-      const normalizedPhone = String(payload.phone || "")
-        .trim()
-        .replace(/\s+/g, "");
+      const normalizedPhone = normalizePhone(payload.phone);
       const normalizedZalo = String(payload.zalo || "").trim();
-      const normalizedEmail = String(payload.email || "").trim();
+      const normalizedEmail = normalizeEmail(payload.email);
       const currentPassword = String(payload.currentPassword || "");
       const newPassword = String(payload.newPassword || "");
 
       if (!normalizedName || normalizedName.length < 2) {
         return resolve({
           err: 1,
-          msg: "H\u1ecd t\u00ean ph\u1ea3i c\u00f3 \u00edt nh\u1ea5t 2 k\u00fd t\u1ef1.",
+          msg: "Ho ten phai co it nhat 2 ky tu.",
           response: null,
           token: null,
         });
       }
 
-      if (!/^0\d{8,10}$/.test(normalizedPhone)) {
+      if (!PHONE_REGEX.test(normalizedPhone)) {
         return resolve({
           err: 1,
-          msg: "S\u1ed1 \u0111i\u1ec7n tho\u1ea1i kh\u00f4ng h\u1ee3p l\u1ec7.",
+          msg: "So dien thoai khong hop le.",
           response: null,
           token: null,
         });
       }
 
-      if (
+      if (normalizedEmail && !EMAIL_REGEX.test(normalizedEmail)) {
+        return resolve({
+          err: 1,
+          msg: "Email khong hop le.",
+          response: null,
+          token: null,
+        });
+      }
+
+      const [existingPhone, existingEmail] = await Promise.all([
+        db.User.findOne({
+          where: { phone: normalizedPhone },
+          raw: true,
+        }),
         normalizedEmail
-        && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
-      ) {
-        return resolve({
-          err: 1,
-          msg: "Email kh\u00f4ng h\u1ee3p l\u1ec7.",
-          response: null,
-          token: null,
-        });
-      }
-
-      const existingPhone = await db.User.findOne({
-        where: { phone: normalizedPhone },
-        raw: true,
-      });
+          ? db.User.findOne({
+            where: {
+              [Op.or]: [{ email: normalizedEmail }, { fbUrl: normalizedEmail }],
+            },
+            raw: true,
+          })
+          : null,
+      ]);
 
       if (existingPhone && existingPhone.id !== id) {
         return resolve({
           err: 1,
-          msg: "S\u1ed1 \u0111i\u1ec7n tho\u1ea1i n\u00e0y \u0111\u00e3 \u0111\u01b0\u1ee3c s\u1eed d\u1ee5ng.",
+          msg: "So dien thoai nay da duoc su dung.",
+          response: null,
+          token: null,
+        });
+      }
+
+      if (existingEmail && existingEmail.id !== id) {
+        return resolve({
+          err: 1,
+          msg: "Email nay da duoc su dung.",
           response: null,
           token: null,
         });
@@ -117,7 +144,7 @@ export const updateCurrentUser = (id, payload = {}) =>
         if (newPassword.length < 6) {
           return resolve({
             err: 1,
-            msg: "M\u1eadt kh\u1ea9u m\u1edbi ph\u1ea3i c\u00f3 \u00edt nh\u1ea5t 6 k\u00fd t\u1ef1.",
+            msg: "Mat khau moi phai co it nhat 6 ky tu.",
             response: null,
             token: null,
           });
@@ -126,7 +153,7 @@ export const updateCurrentUser = (id, payload = {}) =>
         if (!currentPassword || !bcrypt.compareSync(currentPassword, user.password)) {
           return resolve({
             err: 1,
-            msg: "M\u1eadt kh\u1ea9u hi\u1ec7n t\u1ea1i kh\u00f4ng \u0111\u00fang.",
+            msg: "Mat khau hien tai khong dung.",
             response: null,
             token: null,
           });
@@ -138,7 +165,11 @@ export const updateCurrentUser = (id, payload = {}) =>
       user.name = normalizedName;
       user.phone = normalizedPhone;
       user.zalo = normalizedZalo || normalizedPhone;
-      user.fbUrl = normalizedEmail;
+      user.email = normalizedEmail || null;
+
+      if (EMAIL_REGEX.test(String(user.fbUrl || "").trim())) {
+        user.fbUrl = null;
+      }
 
       await user.save();
 
@@ -149,6 +180,34 @@ export const updateCurrentUser = (id, payload = {}) =>
         msg: "OK",
         response: plainUser,
         token: createAccessToken(user),
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+export const promoteUserToAdmin = (userId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const user = await db.User.findOne({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        return resolve({
+          err: 1,
+          msg: "Khong tim thay tai khoan.",
+          response: null,
+        });
+      }
+
+      user.role = "admin";
+      await user.save();
+
+      return resolve({
+        err: 0,
+        msg: "OK",
+        response: mapUserResponse(user.get({ plain: true })),
       });
     } catch (error) {
       reject(error);

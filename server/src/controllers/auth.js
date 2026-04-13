@@ -1,45 +1,70 @@
 import * as authService from "../services/auth";
 
-const normalizeAuthPayload = (payload = {}) => ({
-  name: String(payload.name || "").trim(),
-  phone: String(payload.phone || "")
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+const PHONE_REGEX = /^0\d{8,10}$/;
+
+const normalizePhone = (phone) =>
+  String(phone || "")
     .trim()
-    .replace(/\s+/g, ""),
+    .replace(/\s+/g, "");
+
+const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+
+const normalizeRegisterPayload = (payload = {}) => ({
+  name: String(payload.name || "").trim(),
+  phone: normalizePhone(payload.phone),
+  email: normalizeEmail(payload.email),
   password: String(payload.password || ""),
 });
 
-const isValidPhone = (phone) => /^0\d{8,10}$/.test(phone);
+const normalizeLoginPayload = (payload = {}) => {
+  const rawIdentifier = String(payload.identifier || payload.phone || "").trim();
+
+  return {
+    identifier: EMAIL_REGEX.test(rawIdentifier)
+      ? normalizeEmail(rawIdentifier)
+      : normalizePhone(rawIdentifier),
+    password: String(payload.password || ""),
+  };
+};
 
 export const register = async (req, res) => {
-  const normalizedPayload = normalizeAuthPayload(req.body);
-  const { name, phone, password } = normalizedPayload;
+  const normalizedPayload = normalizeRegisterPayload(req.body);
+  const { name, phone, email, password } = normalizedPayload;
 
   try {
-    if (!name || !phone || !password) {
+    if (!name || !phone || !email || !password) {
       return res.status(400).json({
         err: 1,
-        msg: "Vui lòng nhập đầy đủ thông tin.",
+        msg: "Vui long nhap day du thong tin.",
       });
     }
 
     if (name.length < 2) {
       return res.status(400).json({
         err: 1,
-        msg: "Họ tên phải có ít nhất 2 ký tự.",
+        msg: "Ho ten phai co it nhat 2 ky tu.",
       });
     }
 
-    if (!isValidPhone(phone)) {
+    if (!PHONE_REGEX.test(phone)) {
       return res.status(400).json({
         err: 1,
-        msg: "Số điện thoại không hợp lệ.",
+        msg: "So dien thoai khong hop le.",
+      });
+    }
+
+    if (!EMAIL_REGEX.test(email)) {
+      return res.status(400).json({
+        err: 1,
+        msg: "Email khong hop le.",
       });
     }
 
     if (password.length < 6) {
       return res.status(400).json({
         err: 1,
-        msg: "Mật khẩu phải có ít nhất 6 ký tự.",
+        msg: "Mat khau phai co it nhat 6 ky tu.",
       });
     }
 
@@ -52,34 +77,35 @@ export const register = async (req, res) => {
     );
     return res.status(500).json({
       err: -1,
-      msg: "Lỗi máy chủ nội bộ.",
+      msg: "Loi may chu noi bo.",
     });
   }
 };
 
 export const login = async (req, res) => {
-  const normalizedPayload = normalizeAuthPayload(req.body);
-  const { phone, password } = normalizedPayload;
+  const normalizedPayload = normalizeLoginPayload(req.body);
+  const { identifier, password } = normalizedPayload;
+  const loginWithEmail = EMAIL_REGEX.test(identifier);
 
   try {
-    if (!phone || !password) {
+    if (!identifier || !password) {
       return res.status(400).json({
         err: 1,
-        msg: "Vui lòng nhập đầy đủ thông tin.",
+        msg: "Vui long nhap day du thong tin.",
       });
     }
 
-    if (!isValidPhone(phone)) {
+    if (!loginWithEmail && !PHONE_REGEX.test(identifier)) {
       return res.status(400).json({
         err: 1,
-        msg: "Số điện thoại không hợp lệ.",
+        msg: "So dien thoai khong hop le.",
       });
     }
 
     if (password.length < 6) {
       return res.status(400).json({
         err: 1,
-        msg: "Mật khẩu phải có ít nhất 6 ký tự.",
+        msg: "Mat khau phai co it nhat 6 ky tu.",
       });
     }
 
@@ -92,7 +118,7 @@ export const login = async (req, res) => {
     );
     return res.status(500).json({
       err: -1,
-      msg: "Lỗi máy chủ nội bộ.",
+      msg: "Loi may chu noi bo.",
     });
   }
 };

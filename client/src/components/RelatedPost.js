@@ -15,9 +15,6 @@ const RelatedPost = () => {
     <div className="surface-card w-full rounded-[28px] p-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <h3 className="text-lg font-bold text-slate-900">Tin mới đăng</h3>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Cập nhật
-        </span>
       </div>
       <div className="flex w-full flex-col gap-3">
         {newPosts?.map((item) => (

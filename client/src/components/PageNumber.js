@@ -5,7 +5,10 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
-const { buildSearchParamsObject, mergeQueryValues } = require("../ultils/Common/queryHelpers");
+const {
+  buildSearchParamsObject,
+  mergeQueryValues,
+} = require("../ultils/Common/queryHelpers");
 
 const PageNumber = ({ text, currentPage, icon, setCurrentPage }) => {
   const navigate = useNavigate();
@@ -13,6 +16,19 @@ const PageNumber = ({ text, currentPage, icon, setCurrentPage }) => {
   const [searchParams] = useSearchParams();
   const isActive = Number(text) === Number(currentPage);
   const isEllipsis = text === "...";
+
+  const scrollToPostsTop = () => {
+    try {
+      const el = document.getElementById("post-list");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+    } catch (e) {
+      // ignore
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handleChangePage = () => {
     if (isEllipsis) return;
@@ -27,6 +43,8 @@ const PageNumber = ({ text, currentPage, icon, setCurrentPage }) => {
       pathname: location.pathname,
       search: createSearchParams(nextQuery).toString(),
     });
+    // Scroll to list top after navigation to improve UX
+    scrollToPostsTop();
   };
 
   return (

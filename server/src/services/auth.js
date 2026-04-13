@@ -1,36 +1,87 @@
 import db from "../models";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { Op } from "sequelize";
 import { v4 } from "uuid";
+
 require("dotenv").config();
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+
+const normalizePhone = (phone) =>
+  String(phone || "")
+    .trim()
+    .replace(/\s+/g, "");
+
+const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+
+const isEmailIdentifier = (value) => EMAIL_REGEX.test(normalizeEmail(value));
 
 const hashPassword = (password) =>
   bcrypt.hashSync(password, bcrypt.genSaltSync(12));
 
 const createAccessToken = (user) =>
   jwt.sign(
-    { id: user.id, phone: user.phone },
+    { id: user.id, role: user.role || "user" },
     process.env.SECRET_KEY || "secret",
     { expiresIn: "2d" },
   );
 
-export const registerService = ({ phone, password, name }) =>
+const findUserByPhone = (phone) =>
+  db.User.findOne({
+    where: { phone },
+    raw: true,
+  });
+
+const findUserByEmail = (email) =>
+  db.User.findOne({
+    where: {
+      [Op.or]: [{ email }, { fbUrl: email }],
+    },
+    raw: true,
+  });
+
+const findUsersByIdentifier = (identifier) => {
+  if (isEmailIdentifier(identifier)) {
+    const email = normalizeEmail(identifier);
+    return db.User.findAll({
+      where: {
+        [Op.or]: [{ email }, { fbUrl: email }],
+      },
+      raw: true,
+    });
+  }
+
+  return db.User.findAll({
+    where: { phone: normalizePhone(identifier) },
+    raw: true,
+  });
+};
+
+export const registerService = ({ phone, password, name, email }) =>
   new Promise(async (resolve) => {
     try {
-      const normalizedPhone = String(phone || "")
-        .trim()
-        .replace(/\s+/g, "");
+      const normalizedPhone = normalizePhone(phone);
       const normalizedName = String(name || "").trim();
+      const normalizedEmail = normalizeEmail(email);
 
-      const existing = await db.User.findOne({
-        where: { phone: normalizedPhone },
-        raw: true,
-      });
+      const [existingPhone, existingEmail] = await Promise.all([
+        findUserByPhone(normalizedPhone),
+        findUserByEmail(normalizedEmail),
+      ]);
 
-      if (existing) {
+      if (existingPhone) {
         return resolve({
           err: 2,
-          msg: "Số điện thoại này đã được sử dụng.",
+          msg: "So dien thoai nay da duoc su dung.",
+          token: null,
+        });
+      }
+
+      if (existingEmail) {
+        return resolve({
+          err: 2,
+          msg: "Email nay da duoc su dung.",
           token: null,
         });
       }
@@ -39,72 +90,86 @@ export const registerService = ({ phone, password, name }) =>
         id: v4(),
         phone: normalizedPhone,
         name: normalizedName,
+        email: normalizedEmail,
         password: hashPassword(password),
+        role: "user",
       });
 
       if (!created) {
         return resolve({
           err: 1,
-          msg: "Không thể tạo tài khoản.",
+          msg: "Khong the tao tai khoan.",
           token: null,
         });
       }
 
       return resolve({
         err: 0,
-        msg: "Đăng ký thành công.",
+        msg: "Dang ky thanh cong.",
         token: createAccessToken(created),
       });
     } catch (error) {
       console.error("registerService error:", error);
       return resolve({
         err: -1,
-        msg: "Lỗi máy chủ nội bộ.",
+        msg: "Loi may chu noi bo.",
         token: null,
       });
     }
   });
 
-export const loginService = ({ phone, password }) =>
+export const loginService = ({ identifier, password }) =>
   new Promise(async (resolve) => {
     try {
-      const normalizedPhone = String(phone || "")
-        .trim()
-        .replace(/\s+/g, "");
+      const normalizedIdentifier = String(identifier || "").trim();
+      const candidates = await findUsersByIdentifier(normalizedIdentifier);
 
-      const response = await db.User.findOne({
-        where: { phone: normalizedPhone },
-        raw: true,
-      });
-
-      if (!response) {
+      if (!candidates.length) {
         return resolve({
           err: 2,
-          msg: "Không tìm thấy tài khoản với số điện thoại này.",
+          msg: isEmailIdentifier(normalizedIdentifier)
+            ? "Khong tim thay tai khoan voi email nay."
+            : "Khong tim thay tai khoan voi so dien thoai nay.",
           token: null,
         });
       }
 
-      const isCorrectPassword = bcrypt.compareSync(password, response.password);
+      const matchedUsers = [];
 
-      if (!isCorrectPassword) {
+      for (const user of candidates) {
+        // Legacy data can contain duplicated phones, so choose the single
+        // password match instead of trusting the first row.
+        if (await bcrypt.compare(password, user.password)) {
+          matchedUsers.push(user);
+        }
+      }
+
+      if (!matchedUsers.length) {
         return resolve({
           err: 2,
-          msg: "Mật khẩu không đúng.",
+          msg: "Mat khau khong dung.",
+          token: null,
+        });
+      }
+
+      if (matchedUsers.length > 1) {
+        return resolve({
+          err: 2,
+          msg: "Thong tin dang nhap khong duy nhat. Vui long dung email.",
           token: null,
         });
       }
 
       return resolve({
         err: 0,
-        msg: "Đăng nhập thành công.",
-        token: createAccessToken(response),
+        msg: "Dang nhap thanh cong.",
+        token: createAccessToken(matchedUsers[0]),
       });
     } catch (error) {
       console.error("loginService error:", error);
       return resolve({
         err: -1,
-        msg: "Lỗi máy chủ nội bộ.",
+        msg: "Loi may chu noi bo.",
         token: null,
       });
     }

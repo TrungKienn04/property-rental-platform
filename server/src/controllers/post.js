@@ -150,10 +150,14 @@ export const createNewPost = async (req, res) => {
 };
 
 export const getPostsByCurrentUser = async (req, res) => {
-  const { id } = req.user || {};
+  const { id, role } = req.user || {};
 
   try {
-    const response = await postService.getPostsByUserService(id);
+    const response =
+      role === "admin"
+        ? await postService.getAllManagedPostsService()
+        : await postService.getPostsByUserService(id);
+
     return res.status(200).json(response);
   } catch (error) {
     return res.status(500).json({
