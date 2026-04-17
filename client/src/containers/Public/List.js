@@ -34,6 +34,52 @@ const List = ({ categoryCode }) => {
     refreshVisiblePosts();
   }, [refreshVisiblePosts]);
 
+  // Scroll helpers: ensure the list section is visible below the sticky header/nav
+  const scrollToList = (smooth = true) => {
+    const tryScroll = (attempts = 0) => {
+      const el = document.getElementById("post-list");
+      if (el) {
+        const header = document.querySelector("header");
+        const nav = document.getElementById("main-nav");
+        const headerHeight = header ? header.offsetHeight : 0;
+        const navHeight = nav ? nav.offsetHeight : 0;
+        const top =
+          el.getBoundingClientRect().top +
+          window.scrollY -
+          headerHeight -
+          navHeight -
+          12;
+        window.scrollTo({
+          top: Math.max(0, top),
+          behavior: smooth ? "smooth" : "auto",
+        });
+        return;
+      }
+
+      if (attempts < 6) {
+        setTimeout(() => tryScroll(attempts + 1), 80);
+      }
+    };
+
+    tryScroll();
+  };
+
+  // If URL includes hash to the list, scroll on mount
+  useEffect(() => {
+    if (location.hash && location.hash.includes("post-list")) {
+      scrollToList(true);
+    }
+  }, [location.hash]);
+
+  // When filters / search params change, scroll to the list for better UX
+  useEffect(() => {
+    // small delay to allow DOM update after posts refresh
+    const t = setTimeout(() => {
+      scrollToList(true);
+    }, 120);
+    return () => clearTimeout(t);
+  }, [location.search]);
+
   const handleDeleteSuccess = useCallback(async () => {
     await Promise.all([
       dispatch(actions.getPosts()),

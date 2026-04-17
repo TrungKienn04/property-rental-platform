@@ -56,6 +56,15 @@ const DetailPost = () => {
       .finally(() => setLoading(false));
   }, [postId]);
 
+  // Ensure when navigating to a post detail we scroll to top for best UX
+  useEffect(() => {
+    try {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (e) {
+      // ignore
+    }
+  }, [postId]);
+
   const syncPostCollections = async () =>
     Promise.all([
       dispatch(actions.getPosts()),
@@ -115,11 +124,17 @@ const DetailPost = () => {
   };
 
   if (loading) {
-    return <div className="rounded-[28px] bg-white p-8 shadow-sm">Loading...</div>;
+    return (
+      <div className="rounded-[28px] bg-white p-8 shadow-sm">Loading...</div>
+    );
   }
 
   if (!post) {
-    return <div className="rounded-[28px] bg-white p-8 shadow-sm">Không tìm thấy bài viết.</div>;
+    return (
+      <div className="rounded-[28px] bg-white p-8 shadow-sm">
+        Không tìm thấy bài viết.
+      </div>
+    );
   }
 
   return (
@@ -146,7 +161,9 @@ const DetailPost = () => {
             <span className="rounded-full bg-slate-100 px-3 py-1">
               {post.attributes?.acreage}
             </span>
-            <span className="rounded-full bg-slate-100 px-3 py-1">{post.address}</span>
+            <span className="rounded-full bg-slate-100 px-3 py-1">
+              {post.address}
+            </span>
             {canDeleteCurrentPost && (
               <button
                 type="button"
@@ -201,10 +218,15 @@ const DetailPost = () => {
 
         <div className="grid gap-5 rounded-[28px] bg-slate-50 p-5 lg:grid-cols-2">
           <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-slate-900">Mô tả chi tiết</h2>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Mô tả chi tiết
+            </h2>
             {Array.isArray(post.description) ? (
               post.description.map((item, index) => (
-                <p key={index} className="break-words text-sm leading-7 text-slate-600">
+                <p
+                  key={index}
+                  className="break-words text-sm leading-7 text-slate-600"
+                >
                   {item}
                 </p>
               ))
@@ -215,19 +237,27 @@ const DetailPost = () => {
             )}
           </div>
           <div className="space-y-3">
-            <h2 className="text-lg font-semibold text-slate-900">Thông tin nhanh</h2>
+            <h2 className="text-lg font-semibold text-slate-900">
+              Thông tin nhanh
+            </h2>
             <div className="space-y-3 text-sm text-slate-600">
               <div className="flex items-start justify-between gap-3 rounded-2xl bg-white px-4 py-3">
                 <span>Giá thuê</span>
-                <span className="font-semibold text-slate-900">{post.attributes?.price}</span>
+                <span className="font-semibold text-slate-900">
+                  {post.attributes?.price}
+                </span>
               </div>
               <div className="flex items-start justify-between gap-3 rounded-2xl bg-white px-4 py-3">
                 <span>Diện tích</span>
-                <span className="font-semibold text-slate-900">{post.attributes?.acreage}</span>
+                <span className="font-semibold text-slate-900">
+                  {post.attributes?.acreage}
+                </span>
               </div>
               <div className="flex items-start justify-between gap-3 rounded-2xl bg-white px-4 py-3">
                 <span>Địa chỉ</span>
-                <span className="text-right font-semibold text-slate-900">{post.address}</span>
+                <span className="text-right font-semibold text-slate-900">
+                  {post.address}
+                </span>
               </div>
               <div className="flex items-start justify-between gap-3 rounded-2xl bg-white px-4 py-3">
                 <span>Ngày đăng</span>
@@ -241,7 +271,9 @@ const DetailPost = () => {
 
         {post.address && (
           <div className="space-y-3 rounded-[28px] border border-slate-200 p-5">
-            <h3 className="text-lg font-semibold text-slate-900">Bản đồ khu vực</h3>
+            <h3 className="text-lg font-semibold text-slate-900">
+              Bản đồ khu vực
+            </h3>
             <div className="h-[360px] overflow-hidden rounded-[24px]">
               <iframe
                 title="map"
@@ -261,7 +293,9 @@ const DetailPost = () => {
           <h4 className="text-xl font-semibold text-slate-900">
             {post.user?.name || "Chủ nhà"}
           </h4>
-          <p className="mt-2 text-sm text-slate-500">Liên hệ trực tiếp để hẹn xem phòng.</p>
+          <p className="mt-2 text-sm text-slate-500">
+            Liên hệ trực tiếp để hẹn xem phòng.
+          </p>
           <div className="mt-5 space-y-3">
             <a
               href={`tel:${post.user?.phone || ""}`}
@@ -289,8 +323,8 @@ const DetailPost = () => {
             Ưu tiên liên hệ sớm
           </h5>
           <p className="mt-2 text-sm leading-7 text-slate-500">
-            Tin đang hiển thị đầy đủ thông tin, phù hợp để gọi ngay hoặc nhắn Zalo trước
-            khi đi xem phòng.
+            Tin đang hiển thị đầy đủ thông tin, phù hợp để gọi ngay hoặc nhắn
+            Zalo trước khi đi xem phòng.
           </p>
         </div>
       </aside>

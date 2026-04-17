@@ -30,6 +30,7 @@ const ProvinceBtn = ({ name, image, code }) => {
       {
         pathname: `/${path.SEARCH}`,
         search: createSearchParams(nextQuery).toString(),
+        hash: "#post-list",
       },
       {
         state: {

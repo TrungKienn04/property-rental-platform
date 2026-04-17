@@ -85,7 +85,9 @@ const Sidebar = () => {
             )}
           </div>
           <p className="truncate text-sm text-slate-500">
-            {currentData?.email || currentData?.phone || "Chưa cập nhật liên hệ"}
+            {currentData?.email ||
+              currentData?.phone ||
+              "Chưa cập nhật liên hệ"}
           </p>
         </div>
       </div>
@@ -93,7 +95,9 @@ const Sidebar = () => {
       <div className="mt-4 space-y-2">
         {sidebarItems.map((item) => (
           <NavLink
-            className={({ isActive }) => getLinkClassName(isActive, item.highlight)}
+            className={({ isActive }) =>
+              getLinkClassName(isActive, item.highlight)
+            }
             key={item.id}
             to={item.path}
           >
@@ -125,7 +129,10 @@ const Sidebar = () => {
       <div className="mt-6 space-y-2 border-t border-slate-100 pt-4">
         <button
           type="button"
-          onClick={() => navigate("/")}
+          onClick={() => {
+            // Navigate to home; Home component will handle scrolling to top
+            navigate("/", { replace: false, state: { scrollToTop: true } });
+          }}
           className={`${inactiveStyle} w-full justify-start text-left text-slate-600 hover:text-slate-950`}
         >
           <GrLinkPrevious />

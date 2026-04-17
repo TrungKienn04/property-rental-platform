@@ -32,19 +32,31 @@ const Header = () => {
   const goLogin = useCallback(
     (flag, fromPath) => {
       const resolvedFromPath =
-        fromPath || (isAuthRoute ? authFromPath : `${location.pathname}${location.search}`);
+        fromPath ||
+        (isAuthRoute ? authFromPath : `${location.pathname}${location.search}`);
 
       navigate(authPath, {
         replace: isAuthRoute,
         state: { flag, from: resolvedFromPath },
       });
     },
-    [authFromPath, authPath, isAuthRoute, location.pathname, location.search, navigate],
+    [
+      authFromPath,
+      authPath,
+      isAuthRoute,
+      location.pathname,
+      location.search,
+      navigate,
+    ],
   );
 
   useEffect(() => {
+    // Do not auto-scroll header into view when the location includes a hash
+    // (e.g. navigating to #post-list). That behavior would override intended
+    // scrolling to target elements. Only scroll when there's no hash.
+    if (location.hash && location.hash.length) return;
     headerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [location.search]);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     setIsShowMenu(false);
@@ -146,7 +158,10 @@ const Header = () => {
           )}
 
           {isLoggedIn && !isAuthRoute && (
-            <div ref={menuRef} className="relative flex items-center gap-2 sm:gap-3">
+            <div
+              ref={menuRef}
+              className="relative flex items-center gap-2 sm:gap-3"
+            >
               <User />
               <Button
                 text={isAdmin ? "Bảng quản trị" : "Quản lý tài khoản"}
@@ -174,7 +189,9 @@ const Header = () => {
                       )}
                     </div>
                     <p className="mt-1 truncate text-sm text-slate-500">
-                      {currentData?.email || currentData?.phone || "Chưa cập nhật liên hệ"}
+                      {currentData?.email ||
+                        currentData?.phone ||
+                        "Chưa cập nhật liên hệ"}
                     </p>
                   </div>
 

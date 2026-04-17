@@ -13,7 +13,10 @@ const Navigation = ({ isAdmin }) => {
   }, [dispatch]);
 
   return (
-    <div className="border-b border-slate-200/80 bg-white/80 backdrop-blur">
+    <div
+      id="main-nav"
+      className="border-b border-slate-200/80 bg-white/80 backdrop-blur"
+    >
       <div
         className={`mx-auto flex w-full max-w-[1180px] flex-wrap gap-2 px-4 py-2.5 lg:px-6 ${
           isAdmin ? "justify-start" : "justify-center"
@@ -35,7 +38,10 @@ const Navigation = ({ isAdmin }) => {
         {categories?.map((item) => (
           <NavLink
             key={item.code}
-            to={`/${formatVietnameseToString(item.value)}`}
+            to={{
+              pathname: `/${formatVietnameseToString(item.value)}`,
+              hash: "#post-list",
+            }}
             className={({ isActive }) =>
               `rounded-full px-4 py-2 text-sm font-semibold transition ${
                 isActive

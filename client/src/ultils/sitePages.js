@@ -82,7 +82,8 @@ export const infoPageContent = {
   },
   "chinh-sach-bao-mat": {
     eyebrow: "Bảo mật",
-    title: "Chính sách bảo mật theo hướng tối giản dữ liệu và rõ phạm vi sử dụng",
+    title:
+      "Chính sách bảo mật theo hướng tối giản dữ liệu và rõ phạm vi sử dụng",
     description:
       "Dữ liệu được sử dụng để phục vụ hiển thị tin, xác thực người dùng và cải thiện trải nghiệm sản phẩm. Các thông tin không cần thiết cho luồng nghiệp vụ nên được hạn chế thu thập.",
     highlights: [
@@ -109,7 +110,8 @@ export const infoPageContent = {
   },
   "lien-he": {
     eyebrow: "Hỗ trợ",
-    title: "Kênh liên hệ cho hỗ trợ đăng tin, tìm phòng và xử lý vấn đề phát sinh",
+    title:
+      "Kênh liên hệ cho hỗ trợ đăng tin, tìm phòng và xử lý vấn đề phát sinh",
     description:
       "Nếu cần hỗ trợ trong quá trình sử dụng, người dùng có thể liên hệ trực tiếp qua các kênh bên dưới. Các kênh này phù hợp cho tư vấn thao tác, báo lỗi hiển thị và xác nhận thông tin dịch vụ.",
     highlights: [
@@ -331,5 +333,6 @@ export const footerPayments = [
   "Mastercard",
   "MoMo",
   "ZaloPay",
+  "JCB",
   "Chuyển khoản",
 ];

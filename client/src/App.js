@@ -23,7 +23,8 @@ import { FloatingChat } from "./components";
 
 const hasStoredToken = () =>
   Boolean(
-    window.sessionStorage.getItem("APP_TOKEN") || window.localStorage.getItem("APP_TOKEN"),
+    window.sessionStorage.getItem("APP_TOKEN") ||
+    window.localStorage.getItem("APP_TOKEN"),
   );
 
 function App() {
@@ -51,6 +52,23 @@ function App() {
     dispatch(actions.getProvinces());
   }, [dispatch]);
 
+  // Ensure when navigating back to the homepage (no hash) the viewport
+  // scrolls to the top. Centralized here so clicks from System routes,
+  // header, navigation, sidebar or browser back behave consistently.
+  useEffect(() => {
+    let t;
+    if (location.pathname === "/" && (!location.hash || location.hash === "")) {
+      t = setTimeout(() => {
+        try {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } catch (e) {
+          // ignore
+        }
+      }, 80);
+    }
+    return () => clearTimeout(t);
+  }, [location.pathname, location.hash]);
+
   return (
     <div className="bg-transparent">
       <Routes>
@@ -63,7 +81,10 @@ function App() {
           <Route path={path.NHA_CHO_THUE} element={<Rental />} />
           <Route path={path.SEARCH} element={<SearchDetail />} />
           <Route path="thong-tin/:slug" element={<StaticPage />} />
-          <Route path={path.DETAL_POST__TITLE__POSTID} element={<DetailPost />} />
+          <Route
+            path={path.DETAL_POST__TITLE__POSTID}
+            element={<DetailPost />}
+          />
           <Route path="chi-tiet/*" element={<DetailPost />} />
         </Route>
         <Route path={path.SYSTEM} element={<System />}>

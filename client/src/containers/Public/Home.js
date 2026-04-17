@@ -1,5 +1,5 @@
-import React from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import React, { useEffect } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import Header from "./Header";
 import { Navigation, Search } from "./index";
 import { Contact, Intro, Footer } from "../../components";
@@ -9,6 +9,8 @@ import bgLogin from "../../assets/bg-login.jpg";
 const Home = () => {
   const location = useLocation();
   const isAuthRoute = location.pathname === `/${path.LOGIN}`;
+
+  const navigate = useNavigate();
 
   if (isAuthRoute) {
     return (
