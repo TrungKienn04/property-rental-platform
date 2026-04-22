@@ -5,6 +5,15 @@ import { Op } from "sequelize";
 
 require("dotenv").config();
 
+const {
+  ADMIN_ROLE,
+  USER_ROLE,
+  USER_STATUS_ACTIVE,
+  USER_STATUS_BLOCKED,
+  normalizeRole,
+  normalizeUserStatus,
+} = require("../ultis/accessControl");
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 const PHONE_REGEX = /^0\d{8,10}$/;
 
@@ -20,7 +29,7 @@ const hashPassword = (password) =>
 
 const createAccessToken = (user) =>
   jwt.sign(
-    { id: user.id, role: user.role || "user" },
+    { id: user.id, role: normalizeRole(user.role || USER_ROLE) },
     process.env.SECRET_KEY || "secret",
     { expiresIn: "2d" },
   );
@@ -186,6 +195,95 @@ export const updateCurrentUser = (id, payload = {}) =>
     }
   });
 
+export const getUsers = (filters = {}) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const where = {};
+
+      if (filters.role) {
+        where.role = normalizeRole(filters.role);
+      }
+
+      if (filters.status) {
+        where.status = normalizeUserStatus(filters.status);
+      }
+
+      const response = await db.User.findAll({
+        where,
+        raw: true,
+        order: [["createdAt", "DESC"]],
+        attributes: {
+          exclude: ["password"],
+        },
+      });
+
+      resolve({
+        err: 0,
+        msg: "OK",
+        response: (response || []).map(mapUserResponse),
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+export const getUserById = (userId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await db.User.findOne({
+        where: { id: userId },
+        raw: true,
+        attributes: {
+          exclude: ["password"],
+        },
+      });
+
+      resolve({
+        err: response ? 0 : 1,
+        msg: response ? "OK" : "Khong tim thay tai khoan.",
+        response: mapUserResponse(response),
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+export const updateUserStatus = (userId, payload = {}) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const user = await db.User.findOne({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        return resolve({
+          err: 1,
+          msg: "Khong tim thay tai khoan.",
+          response: null,
+        });
+      }
+
+      const nextStatus = normalizeUserStatus(payload.status);
+      const blockedReason = String(payload.blockedReason || "").trim();
+
+      user.status = nextStatus;
+      user.blockedReason =
+        nextStatus === USER_STATUS_BLOCKED ? blockedReason || null : null;
+      user.blockedAt =
+        nextStatus === USER_STATUS_BLOCKED ? new Date() : null;
+
+      await user.save();
+
+      return resolve({
+        err: 0,
+        msg: "OK",
+        response: mapUserResponse(user.get({ plain: true })),
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+
 export const promoteUserToAdmin = (userId) =>
   new Promise(async (resolve, reject) => {
     try {
@@ -201,7 +299,7 @@ export const promoteUserToAdmin = (userId) =>
         });
       }
 
-      user.role = "admin";
+      user.role = ADMIN_ROLE;
       await user.save();
 
       return resolve({

@@ -26,6 +26,19 @@ module.exports = {
         allowNull: false,
         defaultValue: "user",
       },
+      status: {
+        type: Sequelize.STRING,
+        allowNull: false,
+        defaultValue: "active",
+      },
+      blockedAt: {
+        type: Sequelize.DATE,
+        allowNull: true,
+      },
+      blockedReason: {
+        type: Sequelize.STRING,
+        allowNull: true,
+      },
       zalo: {
         type: Sequelize.STRING,
       },

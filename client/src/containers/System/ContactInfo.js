@@ -15,11 +15,8 @@ const contacts = (currentData = {}) => [
   },
   {
     label: "Zalo",
-    value: currentData?.zalo || currentData?.phone || "Chưa cập nhật",
-    href:
-      currentData?.zalo || currentData?.phone
-        ? `https://zalo.me/${currentData?.zalo || currentData?.phone}`
-        : null,
+    value: currentData?.zalo || "Chưa cập nhật",
+    href: currentData?.zalo ? `https://zalo.me/${currentData.zalo}` : null,
   },
   {
     label: "Gmail",

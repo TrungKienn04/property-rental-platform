@@ -2,6 +2,7 @@ import React from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { NavLink, useNavigate } from "react-router-dom";
 import anonAvatar from "../../assets/anon-avatar.png";
+import { Loading } from "../../components";
 import * as actions from "../../store/actions";
 import getMenuSidebar from "../../ultils/menuSidebar";
 import icons from "../../ultils/icons";
@@ -45,11 +46,14 @@ const getItemTextClass = (isActive, highlight = false) => {
 const Sidebar = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { currentData } = useSelector((state) => state.user);
+  const { currentData, isLoadingCurrent, isCurrentResolved } = useSelector(
+    (state) => state.user,
+  );
   const { role: storedRole } = useSelector((state) => state.auth);
   const resolvedRole = currentData?.role || storedRole;
   const isAdmin = isAdminRole(resolvedRole);
   const sidebarItems = getMenuSidebar(resolvedRole);
+  const isHydratingUser = (isLoadingCurrent || !isCurrentResolved) && !currentData?.id;
 
   const handleLogout = () => {
     dispatch(actions.logout());
@@ -58,6 +62,16 @@ const Sidebar = () => {
       state: { flag: false, from: "/" },
     });
   };
+
+  if (isHydratingUser) {
+    return (
+      <aside className="surface-card h-fit self-start rounded-[24px] p-4 xl:sticky xl:top-5">
+        <div className="flex min-h-[240px] items-center justify-center">
+          <Loading />
+        </div>
+      </aside>
+    );
+  }
 
   return (
     <aside
@@ -85,9 +99,7 @@ const Sidebar = () => {
             )}
           </div>
           <p className="truncate text-sm text-slate-500">
-            {currentData?.email ||
-              currentData?.phone ||
-              "Chưa cập nhật liên hệ"}
+            {currentData?.email || currentData?.phone || "Chưa cập nhật liên hệ"}
           </p>
         </div>
       </div>
@@ -130,7 +142,6 @@ const Sidebar = () => {
         <button
           type="button"
           onClick={() => {
-            // Navigate to home; Home component will handle scrolling to top
             navigate("/", { replace: false, state: { scrollToTop: true } });
           }}
           className={`${inactiveStyle} w-full justify-start text-left text-slate-600 hover:text-slate-950`}

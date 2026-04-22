@@ -22,9 +22,9 @@ const editProfileItem = {
 const getMenuSidebar = (role) => {
   const manageItem = isAdminRole(role)
     ? {
-        id: "manage-all-posts",
-        text: "Quản lý tất cả bài đăng",
-        path: `/he-thong/${path.MANAGE_POSTS}`,
+        id: "manage-admin-posts",
+        text: "Kiểm duyệt bài đăng",
+        path: `/he-thong/${path.ADMIN_MANAGE_POSTS}`,
         icon: <MdOutlineLibraryBooks />,
         highlight: true,
         badge: "Admin",
@@ -37,7 +37,7 @@ const getMenuSidebar = (role) => {
       };
 
   return isAdminRole(role)
-    ? [manageItem, createPostItem, editProfileItem]
+    ? [manageItem, editProfileItem]
     : [createPostItem, manageItem, editProfileItem];
 };
 

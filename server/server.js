@@ -104,10 +104,41 @@ connectDatabase().then(async () => {
         console.log("Added Users.role column");
       }
 
+      if (!userDesc.status) {
+        await queryInterface.addColumn("Users", "status", {
+          type: db.Sequelize.STRING,
+          allowNull: false,
+          defaultValue: "active",
+        });
+        console.log("Added Users.status column");
+      }
+
+      if (!userDesc.blockedAt) {
+        await queryInterface.addColumn("Users", "blockedAt", {
+          type: db.Sequelize.DATE,
+          allowNull: true,
+        });
+        console.log("Added Users.blockedAt column");
+      }
+
+      if (!userDesc.blockedReason) {
+        await queryInterface.addColumn("Users", "blockedReason", {
+          type: db.Sequelize.STRING,
+          allowNull: true,
+        });
+        console.log("Added Users.blockedReason column");
+      }
+
       await db.sequelize.query(`
         UPDATE Users
         SET role = 'user'
         WHERE role IS NULL OR role = ''
+      `);
+
+      await db.sequelize.query(`
+        UPDATE Users
+        SET status = 'active'
+        WHERE status IS NULL OR status = ''
       `);
 
       const userIndexes = await queryInterface.showIndex("Users");
@@ -126,9 +157,91 @@ connectDatabase().then(async () => {
         });
         console.log("Added Users.email unique index");
       }
+
+      const hasUsersStatusRoleIndex = userIndexes.some(
+        (index) => index.name === "users_status_role_idx",
+      );
+
+      if (!hasUsersStatusRoleIndex) {
+        await queryInterface.addIndex("Users", ["status", "role"], {
+          name: "users_status_role_idx",
+        });
+        console.log("Added Users status/role index");
+      }
     } catch (error) {
       console.error(
         "Ensure Users columns failed (safe to ignore if table missing):",
+        error && error.message ? error.message : error,
+      );
+    }
+
+    try {
+      const queryInterface = db.sequelize.getQueryInterface();
+      const postDesc = await queryInterface.describeTable("Posts");
+
+      if (!postDesc.status) {
+        await queryInterface.addColumn("Posts", "status", {
+          type: db.Sequelize.STRING,
+          allowNull: false,
+          defaultValue: "published",
+        });
+        console.log("Added Posts.status column");
+      }
+
+      if (!postDesc.moderatedAt) {
+        await queryInterface.addColumn("Posts", "moderatedAt", {
+          type: db.Sequelize.DATE,
+          allowNull: true,
+        });
+        console.log("Added Posts.moderatedAt column");
+      }
+
+      if (!postDesc.moderatedBy) {
+        await queryInterface.addColumn("Posts", "moderatedBy", {
+          type: db.Sequelize.STRING,
+          allowNull: true,
+        });
+        console.log("Added Posts.moderatedBy column");
+      }
+
+      if (!postDesc.moderationReason) {
+        await queryInterface.addColumn("Posts", "moderationReason", {
+          type: db.Sequelize.TEXT,
+          allowNull: true,
+        });
+        console.log("Added Posts.moderationReason column");
+      }
+
+      await db.sequelize.query(`
+        UPDATE Posts
+        SET status = 'published'
+        WHERE status IS NULL OR status = ''
+      `);
+
+      const postIndexes = await queryInterface.showIndex("Posts");
+      const hasPostsStatusCreatedAtIndex = postIndexes.some(
+        (index) => index.name === "posts_status_created_at_idx",
+      );
+      const hasPostsUserStatusCreatedAtIndex = postIndexes.some(
+        (index) => index.name === "posts_user_status_created_at_idx",
+      );
+
+      if (!hasPostsStatusCreatedAtIndex) {
+        await queryInterface.addIndex("Posts", ["status", "createdAt"], {
+          name: "posts_status_created_at_idx",
+        });
+        console.log("Added Posts status/createdAt index");
+      }
+
+      if (!hasPostsUserStatusCreatedAtIndex) {
+        await queryInterface.addIndex("Posts", ["userId", "status", "createdAt"], {
+          name: "posts_user_status_created_at_idx",
+        });
+        console.log("Added Posts user/status/createdAt index");
+      }
+    } catch (error) {
+      console.error(
+        "Ensure Posts columns failed (safe to ignore if table missing):",
         error && error.message ? error.message : error,
       );
     }

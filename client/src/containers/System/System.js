@@ -1,12 +1,16 @@
 import React from "react";
 import { useSelector } from "react-redux";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Loading } from "../../components";
 import { path } from "../../ultils/constant";
 import { Sidebar } from "./";
 
 const System = () => {
   const location = useLocation();
   const { isLoggedIn } = useSelector((state) => state.auth);
+  const { currentData, isLoadingCurrent, isCurrentResolved } = useSelector(
+    (state) => state.user,
+  );
 
   if (!isLoggedIn) {
     return (
@@ -15,6 +19,18 @@ const System = () => {
         replace
         state={{ flag: false, from: `${location.pathname}${location.search}` }}
       />
+    );
+  }
+
+  if ((isLoadingCurrent || !isCurrentResolved) && !currentData?.id) {
+    return (
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(251,191,36,0.12),_transparent_22%),linear-gradient(180deg,_#fffdf8_0%,_#eef2f7_100%)]">
+        <div className="mx-auto flex min-h-screen w-full max-w-[1280px] items-center justify-center px-4 py-6 lg:px-6">
+          <div className="surface-card flex min-h-[280px] w-full max-w-[420px] items-center justify-center rounded-[24px] border border-slate-200 bg-white">
+            <Loading />
+          </div>
+        </div>
+      </div>
     );
   }
 

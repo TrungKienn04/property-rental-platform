@@ -6,6 +6,13 @@ import { v4 } from "uuid";
 
 require("dotenv").config();
 
+const {
+  USER_ROLE,
+  USER_STATUS_ACTIVE,
+  isBlockedUserStatus,
+  normalizeRole,
+} = require("../ultis/accessControl");
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
 const normalizePhone = (phone) =>
@@ -22,7 +29,7 @@ const hashPassword = (password) =>
 
 const createAccessToken = (user) =>
   jwt.sign(
-    { id: user.id, role: user.role || "user" },
+    { id: user.id, role: normalizeRole(user.role || USER_ROLE) },
     process.env.SECRET_KEY || "secret",
     { expiresIn: "2d" },
   );
@@ -92,7 +99,8 @@ export const registerService = ({ phone, password, name, email }) =>
         name: normalizedName,
         email: normalizedEmail,
         password: hashPassword(password),
-        role: "user",
+        role: USER_ROLE,
+        status: USER_STATUS_ACTIVE,
       });
 
       if (!created) {
@@ -156,6 +164,14 @@ export const loginService = ({ identifier, password }) =>
         return resolve({
           err: 2,
           msg: "Thong tin dang nhap khong duy nhat. Vui long dung email.",
+          token: null,
+        });
+      }
+
+      if (isBlockedUserStatus(matchedUsers[0]?.status)) {
+        return resolve({
+          err: 2,
+          msg: "Tai khoan da bi khoa.",
           token: null,
         });
       }

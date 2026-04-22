@@ -37,7 +37,7 @@ const persistRefreshedToken = (token) => {
 const createInitialForm = (currentData = {}) => ({
   name: currentData?.name || "",
   phone: currentData?.phone || "",
-  zalo: currentData?.zalo || currentData?.phone || "",
+  zalo: currentData?.zalo || "",
   email: currentData?.email || "",
   currentPassword: "",
   newPassword: "",

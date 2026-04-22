@@ -1,9 +1,52 @@
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+const USER_ROLE = "user";
+const ADMIN_ROLE = "admin";
+const USER_STATUS_ACTIVE = "active";
+const USER_STATUS_BLOCKED = "blocked";
+
+const normalizeKnownRole = (role) => {
+  const normalized = String(role || "").trim().toLowerCase();
+
+  if (normalized === ADMIN_ROLE || normalized === USER_ROLE) {
+    return normalized;
+  }
+
+  return null;
+};
 
 const normalizeRole = (role) =>
-  String(role || "").trim().toLowerCase() === "admin" ? "admin" : "user";
+  normalizeKnownRole(role) || USER_ROLE;
 
-const isAdminRole = (role) => normalizeRole(role) === "admin";
+const resolveAuthRole = (...roles) => {
+  for (const role of roles) {
+    const normalized = normalizeKnownRole(role);
+
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return null;
+};
+
+const isAdminRole = (role) => resolveAuthRole(role) === ADMIN_ROLE;
+const isUserRole = (role) => resolveAuthRole(role) === USER_ROLE;
+
+const normalizeUserStatus = (status) => {
+  const normalized = String(status || "").trim().toLowerCase();
+
+  if (normalized === USER_STATUS_ACTIVE || normalized === USER_STATUS_BLOCKED) {
+    return normalized;
+  }
+
+  return null;
+};
+
+const isBlockedUserStatus = (status) =>
+  normalizeUserStatus(status) === USER_STATUS_BLOCKED;
+
+const hasResolvedAuthProfile = (currentData = {}) =>
+  Boolean(currentData?.id && resolveAuthRole(currentData?.role));
 
 const normalizeLoginIdentifier = (value = "") => {
   const trimmed = String(value || "").trim();
@@ -54,9 +97,18 @@ const extractRoleFromToken = (token) => {
 };
 
 module.exports = {
+  ADMIN_ROLE,
   EMAIL_REGEX,
   extractRoleFromToken,
+  hasResolvedAuthProfile,
+  isBlockedUserStatus,
   isAdminRole,
+  isUserRole,
   normalizeLoginIdentifier,
   normalizeRole,
+  normalizeUserStatus,
+  resolveAuthRole,
+  USER_ROLE,
+  USER_STATUS_ACTIVE,
+  USER_STATUS_BLOCKED,
 };

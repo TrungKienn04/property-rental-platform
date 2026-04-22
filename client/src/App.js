@@ -19,19 +19,27 @@ import {
 } from "./containers/System";
 import { path } from "./ultils/constant";
 import * as actions from "./store/actions";
-import { FloatingChat } from "./components";
+import { FloatingChat, Loading, RoleRouteGuard } from "./components";
 
 const hasStoredToken = () =>
   Boolean(
     window.sessionStorage.getItem("APP_TOKEN") ||
-    window.localStorage.getItem("APP_TOKEN"),
+      window.localStorage.getItem("APP_TOKEN"),
   );
+
+const SystemRouteFallback = () => (
+  <div className="surface-card flex min-h-[280px] items-center justify-center rounded-[24px] border border-slate-200 bg-white">
+    <Loading />
+  </div>
+);
 
 function App() {
   const dispatch = useDispatch();
   const location = useLocation();
   const { isLoggedIn } = useSelector((state) => state.auth);
-  const { currentData } = useSelector((state) => state.user);
+  const { currentData, isLoadingCurrent, isCurrentResolved } = useSelector(
+    (state) => state.user,
+  );
   const isAuthRoute = location.pathname === `/${path.LOGIN}`;
 
   useEffect(() => {
@@ -40,10 +48,21 @@ function App() {
       return;
     }
 
-    if (isLoggedIn && !currentData?.id) {
+    if (
+      isLoggedIn &&
+      !currentData?.id &&
+      !isLoadingCurrent &&
+      !isCurrentResolved
+    ) {
       dispatch(actions.getCurrent());
     }
-  }, [currentData?.id, dispatch, isLoggedIn]);
+  }, [
+    currentData?.id,
+    dispatch,
+    isCurrentResolved,
+    isLoadingCurrent,
+    isLoggedIn,
+  ]);
 
   useEffect(() => {
     dispatch(actions.getCategories());
@@ -52,22 +71,29 @@ function App() {
     dispatch(actions.getProvinces());
   }, [dispatch]);
 
-  // Ensure when navigating back to the homepage (no hash) the viewport
-  // scrolls to the top. Centralized here so clicks from System routes,
-  // header, navigation, sidebar or browser back behave consistently.
   useEffect(() => {
     let t;
     if (location.pathname === "/" && (!location.hash || location.hash === "")) {
       t = setTimeout(() => {
         try {
           window.scrollTo({ top: 0, behavior: "smooth" });
-        } catch (e) {
-          // ignore
-        }
+        } catch (e) {}
       }, 80);
     }
     return () => clearTimeout(t);
   }, [location.pathname, location.hash]);
+
+  const renderSystemIndex = () => {
+    if (isLoggedIn && !currentData?.id && !isCurrentResolved) {
+      return <SystemRouteFallback />;
+    }
+
+    return currentData?.role === "admin" ? (
+      <Navigate to={path.ADMIN_MANAGE_POSTS} replace />
+    ) : (
+      <Navigate to={path.MANAGE_POSTS} replace />
+    );
+  };
 
   return (
     <div className="bg-transparent">
@@ -87,12 +113,58 @@ function App() {
           />
           <Route path="chi-tiet/*" element={<DetailPost />} />
         </Route>
+
         <Route path={path.SYSTEM} element={<System />}>
-          <Route index element={<Navigate to={path.CREATE_POST} replace />} />
-          <Route path={path.CREATE_POST} element={<CreatePost />} />
-          <Route path={path.MANAGE_POSTS} element={<ManagePosts />} />
-          <Route path={path.EDIT_PROFILE} element={<EditProfile />} />
-          <Route path={path.CONTACT} element={<ContactInfo />} />
+          <Route index element={renderSystemIndex()} />
+          <Route
+            path={path.CREATE_POST}
+            element={
+              <RoleRouteGuard
+                allowRoles={["user"]}
+                redirectTo={`/he-thong/${path.ADMIN_MANAGE_POSTS}`}
+              >
+                <CreatePost />
+              </RoleRouteGuard>
+            }
+          />
+          <Route
+            path={path.MANAGE_POSTS}
+            element={
+              <RoleRouteGuard
+                allowRoles={["user"]}
+                redirectTo={`/he-thong/${path.ADMIN_MANAGE_POSTS}`}
+              >
+                <ManagePosts />
+              </RoleRouteGuard>
+            }
+          />
+          <Route
+            path={path.ADMIN_MANAGE_POSTS}
+            element={
+              <RoleRouteGuard
+                allowRoles={["admin"]}
+                redirectTo={`/he-thong/${path.MANAGE_POSTS}`}
+              >
+                <ManagePosts />
+              </RoleRouteGuard>
+            }
+          />
+          <Route
+            path={path.EDIT_PROFILE}
+            element={
+              <RoleRouteGuard allowRoles={["user", "admin"]}>
+                <EditProfile />
+              </RoleRouteGuard>
+            }
+          />
+          <Route
+            path={path.CONTACT}
+            element={
+              <RoleRouteGuard allowRoles={["user", "admin"]}>
+                <ContactInfo />
+              </RoleRouteGuard>
+            }
+          />
         </Route>
       </Routes>
       {!isAuthRoute && <FloatingChat />}

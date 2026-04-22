@@ -1,16 +1,43 @@
 import React, { memo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { Button } from "../components";
 import icons from "../ultils/icons";
+import { path } from "../ultils/constant";
 import { text } from "../ultils/dataIntro";
 import { formatVietnameseToString } from "../ultils/Common/formatVietnameseToString";
+
+const { isAdminRole } = require("../ultils/Common/authHelpers");
 
 const { GrStar } = icons;
 
 const Intro = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { categories } = useSelector((state) => state.app);
+  const { isLoggedIn, role: storedRole } = useSelector((state) => state.auth);
+  const { currentData } = useSelector((state) => state.user);
+  const resolvedRole = currentData?.role || storedRole;
+  const isAdmin = isAdminRole(resolvedRole);
+
+  const handlePrimaryAction = () => {
+    if (isAdmin) {
+      navigate(`/he-thong/${path.ADMIN_MANAGE_POSTS}`);
+      return;
+    }
+
+    if (isLoggedIn) {
+      navigate(`/he-thong/${path.CREATE_POST}`);
+      return;
+    }
+
+    navigate(`/${path.LOGIN}`, {
+      state: {
+        flag: false,
+        from: `${location.pathname}${location.search}`,
+      },
+    });
+  };
 
   return (
     <section className="rounded-[32px] bg-white p-6 shadow-sm lg:p-8">
@@ -21,8 +48,7 @@ const Intro = () => {
           </p>
           <h3 className="text-3xl font-semibold text-slate-900">{text.title}</h3>
           <p className="mx-auto max-w-4xl text-base leading-8 text-slate-500">
-            {text.description}
-            {" "}
+            {text.description}{" "}
             {categories?.map((item, index) => (
               <Link
                 to={`/${formatVietnameseToString(item.value)}`}
@@ -65,11 +91,11 @@ const Intro = () => {
           <h3 className="text-2xl font-semibold text-slate-900">{text.question}</h3>
           <p className="text-base leading-8 text-slate-500">{text.answer}</p>
           <Button
-            text="Đăng tin ngay"
+            text={isAdmin ? "Vào kiểm duyệt bài" : "Đăng tin ngay"}
             bgColor="bg-amber-400"
             textColor="text-slate-950"
             px="px-6"
-            onClick={() => navigate("/he-thong/tao-moi-bai-dang")}
+            onClick={handlePrimaryAction}
           />
         </div>
       </div>

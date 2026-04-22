@@ -1,20 +1,31 @@
 import actionTypes from "../actions/actionTypes";
 
 const initState = {
-    currentData: {}
+    currentData: {},
+    isLoadingCurrent: false,
+    isCurrentResolved: false,
 }
 
 const userReducer = (state = initState, action) => {
     switch (action.type) {
+        case actionTypes.GET_CURRENT_REQUEST:
+            return {
+                ...state,
+                isLoadingCurrent: true,
+            }
         case actionTypes.GET_CURRENT:
             return {
                 ...state,
-                currentData: action.currentData || {}
+                currentData: action.currentData || {},
+                isLoadingCurrent: false,
+                isCurrentResolved: true,
             }
         case actionTypes.LOGOUT:
             return {
                 ...state,
-                currentData: {}
+                currentData: {},
+                isLoadingCurrent: false,
+                isCurrentResolved: false,
             }
 
 

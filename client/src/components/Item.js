@@ -44,6 +44,7 @@ const Item = ({
   const canDeleteCurrentPost = canDeletePost({
     role: resolvedRole,
     currentUserId: currentData?.id,
+    currentUserStatus: currentData?.status,
     post: { id, userId },
   });
 

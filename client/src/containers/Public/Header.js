@@ -19,7 +19,9 @@ const Header = () => {
   const headerRef = useRef();
   const menuRef = useRef();
   const { isLoggedIn, role: storedRole } = useSelector((state) => state.auth);
-  const { currentData } = useSelector((state) => state.user);
+  const { currentData, isLoadingCurrent, isCurrentResolved } = useSelector(
+    (state) => state.user,
+  );
   const [isShowMenu, setIsShowMenu] = useState(false);
   const authPath = `/${path.LOGIN}`;
   const isAuthRoute = location.pathname === authPath;
@@ -28,6 +30,7 @@ const Header = () => {
   const resolvedRole = currentData?.role || storedRole;
   const isAdmin = isAdminRole(resolvedRole);
   const menuItems = getMenuManage(resolvedRole);
+  const isHydratingUser = (isLoadingCurrent || !isCurrentResolved) && !currentData?.id;
 
   const goLogin = useCallback(
     (flag, fromPath) => {
@@ -51,12 +54,9 @@ const Header = () => {
   );
 
   useEffect(() => {
-    // Do not auto-scroll header into view when the location includes a hash
-    // (e.g. navigating to #post-list). That behavior would override intended
-    // scrolling to target elements. Only scroll when there's no hash.
     if (location.hash && location.hash.length) return;
     headerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [location.pathname, location.search]);
+  }, [location.hash, location.pathname, location.search]);
 
   useEffect(() => {
     setIsShowMenu(false);
@@ -172,6 +172,7 @@ const Header = () => {
                 className="min-h-[42px] text-sm shadow-none hover:shadow-sm"
                 onClick={() => setIsShowMenu((prev) => !prev)}
               />
+
               {isShowMenu && (
                 <div className="absolute right-0 top-full z-20 mt-3 min-w-[268px] overflow-hidden rounded-[24px] border border-slate-200 bg-white/95 p-3 shadow-[0_24px_60px_rgba(15,23,42,0.14)] backdrop-blur-xl">
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
@@ -180,7 +181,7 @@ const Header = () => {
                     </p>
                     <div className="mt-2 flex items-center gap-2">
                       <p className="truncate text-sm font-semibold text-slate-950">
-                        {currentData?.name || "Tài khoản"}
+                        {isHydratingUser ? "Đang đồng bộ..." : currentData?.name || "Tài khoản"}
                       </p>
                       {isAdmin && (
                         <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700">
@@ -189,50 +190,54 @@ const Header = () => {
                       )}
                     </div>
                     <p className="mt-1 truncate text-sm text-slate-500">
-                      {currentData?.email ||
-                        currentData?.phone ||
-                        "Chưa cập nhật liên hệ"}
+                      {isHydratingUser
+                        ? "Đang lấy quyền từ máy chủ"
+                        : currentData?.email ||
+                          currentData?.phone ||
+                          "Chưa cập nhật liên hệ"}
                     </p>
                   </div>
 
-                  <div className="mt-3 flex flex-col gap-2">
-                    {menuItems.map((item) => (
-                      <Link
-                        className={`flex items-center justify-between gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition ${
-                          item.highlight
-                            ? "bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
-                            : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-                        }`}
-                        key={item.id}
-                        to={item.path}
-                        onClick={() => setIsShowMenu(false)}
-                      >
-                        <span className="flex items-center gap-2">
-                          {item.icon}
-                          {item.text}
-                        </span>
-                        {item.badge && (
-                          <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700">
-                            {item.badge}
+                  {!isHydratingUser ? (
+                    <div className="mt-3 flex flex-col gap-2">
+                      {menuItems.map((item) => (
+                        <Link
+                          className={`flex items-center justify-between gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition ${
+                            item.highlight
+                              ? "bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                              : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                          }`}
+                          key={item.id}
+                          to={item.path}
+                          onClick={() => setIsShowMenu(false)}
+                        >
+                          <span className="flex items-center gap-2">
+                            {item.icon}
+                            {item.text}
                           </span>
-                        )}
-                      </Link>
-                    ))}
-                    <button
-                      type="button"
-                      className="flex items-center gap-2 rounded-2xl px-3 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
-                      onClick={handleLogout}
-                    >
-                      <AiOutlineLogout />
-                      Đăng xuất
-                    </button>
-                  </div>
+                          {item.badge && (
+                            <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700">
+                              {item.badge}
+                            </span>
+                          )}
+                        </Link>
+                      ))}
+                      <button
+                        type="button"
+                        className="flex items-center gap-2 rounded-2xl px-3 py-3 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900"
+                        onClick={handleLogout}
+                      >
+                        <AiOutlineLogout />
+                        Đăng xuất
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>
           )}
 
-          {!isAuthRoute && (
+          {!isAuthRoute && !isAdmin && (
             <Button
               text="Đăng tin mới"
               textColor="text-slate-950"
@@ -241,8 +246,8 @@ const Header = () => {
               className="min-h-[42px] text-sm shadow-none hover:shadow-sm"
               onClick={() =>
                 isLoggedIn
-                  ? navigate("/he-thong/tao-moi-bai-dang")
-                  : goLogin(false, "/he-thong/tao-moi-bai-dang")
+                  ? navigate(`/he-thong/${path.CREATE_POST}`)
+                  : goLogin(false, `/he-thong/${path.CREATE_POST}`)
               }
             />
           )}

@@ -17,6 +17,7 @@ const actionTypes = {
     GET_PROVINCES: 'GET_PROVINCES',
 
     // USER
+    GET_CURRENT_REQUEST: 'GET_CURRENT_REQUEST',
     GET_CURRENT: 'GET_CURRENT'
 }
 

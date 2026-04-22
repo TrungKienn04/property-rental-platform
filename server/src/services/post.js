@@ -5,6 +5,15 @@ import { dataArea, dataPrice } from "../ultis/data";
 
 const { buildPostWhereClause } = require("../ultis/postFilters");
 const {
+  isAdminRole,
+  isPublishedPostStatus,
+  normalizePostStatus,
+  POST_STATUS_HIDDEN,
+  POST_STATUS_PENDING,
+  POST_STATUS_PUBLISHED,
+  POST_STATUS_REJECTED,
+} = require("../ultis/accessControl");
+const {
   normalizeImageList,
   normalizeDescription,
 } = require("../ultis/postData");
@@ -58,11 +67,29 @@ const mapUserResponse = (user) => {
 
 const mapPostResponse = (record) => ({
   ...record,
+  status: normalizePostStatus(record?.status),
   user: mapUserResponse(record?.user),
   images: { image: normalizeImageList(record?.images?.image) },
   description: normalizeDescription(record?.description),
   overview: record?.overview || null,
 });
+
+const buildPublicPostWhere = (filters = {}) => ({
+  ...buildPostWhereClause(filters),
+  status: POST_STATUS_PUBLISHED,
+});
+
+const canViewManagedPost = (post, viewer = {}) => {
+  if (!post) return false;
+  if (isPublishedPostStatus(post.status)) return true;
+  if (isAdminRole(viewer.role)) return true;
+
+  return Boolean(
+    String(viewer.id || "").trim()
+    && String(post.userId || "").trim()
+    && String(viewer.id || "").trim() === String(post.userId || "").trim(),
+  );
+};
 
 const normalizeDescriptionInput = (value) => {
   if (Array.isArray(value)) {
@@ -160,10 +187,21 @@ export const getPostsService = () =>
   new Promise(async (resolve, reject) => {
     try {
       const response = await db.Post.findAll({
+        where: {
+          status: POST_STATUS_PUBLISHED,
+        },
         raw: true,
         nest: true,
         include: publicPostIncludes,
-        attributes: ["id", "title", "star", "address", "description", "userId"],
+        attributes: [
+          "id",
+          "title",
+          "star",
+          "address",
+          "description",
+          "userId",
+          "status",
+        ],
       });
 
       resolve({
@@ -184,7 +222,7 @@ export const getPostsLimitService = (
   new Promise(async (resolve, reject) => {
     try {
       const offset = !page || +page <= 1 ? 0 : +page - 1;
-      const where = buildPostWhereClause({
+      const where = buildPublicPostWhere({
         ...query,
         priceNumber,
         areaNumber,
@@ -198,7 +236,15 @@ export const getPostsLimitService = (
         limit: +process.env.LIMIT,
         order: [["createdAt", "DESC"]],
         include: publicPostIncludes,
-        attributes: ["id", "title", "star", "address", "description", "userId"],
+        attributes: [
+          "id",
+          "title",
+          "star",
+          "address",
+          "description",
+          "userId",
+          "status",
+        ],
       };
 
       console.log(
@@ -226,13 +272,16 @@ export const getNewPostService = () =>
   new Promise(async (resolve, reject) => {
     try {
       const response = await db.Post.findAll({
+        where: {
+          status: POST_STATUS_PUBLISHED,
+        },
         raw: true,
         nest: true,
         offset: 0,
         order: [["createdAt", "DESC"]],
         limit: +process.env.LIMIT,
         include: baseListIncludes,
-        attributes: ["id", "title", "star", "createdAt"],
+        attributes: ["id", "title", "star", "createdAt", "status"],
       });
 
       resolve({
@@ -245,7 +294,7 @@ export const getNewPostService = () =>
     }
   });
 
-export const getPostByIdService = (id) =>
+export const getPostByIdService = (id, viewer = {}) =>
   new Promise(async (resolve, reject) => {
     try {
       const response = await db.Post.findOne({
@@ -261,10 +310,18 @@ export const getPostByIdService = (id) =>
           "description",
           "userId",
           "createdAt",
+          "status",
+          "moderatedAt",
+          "moderatedBy",
+          "moderationReason",
         ],
       });
 
       if (!response) {
+        return resolve({ err: 1, msg: "Not found", response: null });
+      }
+
+      if (!canViewManagedPost(response, viewer)) {
         return resolve({ err: 1, msg: "Not found", response: null });
       }
 
@@ -319,6 +376,10 @@ export const createNewPostService = (body, userId) =>
         provinceCode,
         priceNumber: normalizedPriceNumber,
         areaNumber: normalizedAreaNumber,
+        status: POST_STATUS_PUBLISHED,
+        moderatedAt: null,
+        moderatedBy: null,
+        moderationReason: null,
       }, { transaction });
 
       await db.Attribute.create({
@@ -378,6 +439,10 @@ export const getPostsByUserService = (userId) =>
           "provinceCode",
           "priceNumber",
           "areaNumber",
+          "status",
+          "moderatedAt",
+          "moderatedBy",
+          "moderationReason",
           "createdAt",
           "updatedAt",
         ],
@@ -393,10 +458,12 @@ export const getPostsByUserService = (userId) =>
     }
   });
 
-export const getAllManagedPostsService = () =>
+export const getAllManagedPostsService = (filters = {}) =>
   new Promise(async (resolve, reject) => {
     try {
+      const where = buildPostWhereClause(filters);
       const response = await db.Post.findAll({
+        where,
         raw: true,
         nest: true,
         order: [["createdAt", "DESC"]],
@@ -414,6 +481,10 @@ export const getAllManagedPostsService = () =>
           "priceNumber",
           "areaNumber",
           "userId",
+          "status",
+          "moderatedAt",
+          "moderatedBy",
+          "moderationReason",
           "createdAt",
           "updatedAt",
         ],
@@ -469,6 +540,7 @@ export const updatePostService = (postId, body, userId) =>
           provinceCode,
           priceNumber: normalizedPriceNumber,
           areaNumber: normalizedAreaNumber,
+          status: normalizePostStatus(post.status),
         },
         { transaction },
       );
@@ -544,6 +616,49 @@ export const updatePostService = (postId, body, userId) =>
       });
     } catch (error) {
       await transaction.rollback();
+      reject(error);
+    }
+  });
+
+export const updatePostStatusService = (
+  postId,
+  status,
+  moderatorId,
+  moderationReason = "",
+) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const post = await db.Post.findOne({
+        where: { id: postId },
+      });
+
+      if (!post) {
+        return resolve({
+          err: 1,
+          msg: "Khong tim thay tin dang.",
+          response: null,
+        });
+      }
+
+      post.status = normalizePostStatus(status);
+      post.moderatedBy = moderatorId || null;
+      post.moderatedAt = new Date();
+      post.moderationReason = String(moderationReason || "").trim() || null;
+
+      await post.save();
+
+      return resolve({
+        err: 0,
+        msg: "OK",
+        response: {
+          id: post.id,
+          status: post.status,
+          moderatedBy: post.moderatedBy,
+          moderatedAt: post.moderatedAt,
+          moderationReason: post.moderationReason,
+        },
+      });
+    } catch (error) {
       reject(error);
     }
   });

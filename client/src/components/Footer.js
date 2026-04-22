@@ -20,6 +20,15 @@ const Footer = () => {
     "Chuyển khoản": shopeePayLogo,
   };
 
+  const paymentLinks = {
+    VISA: "https://www.visa.com",
+    Mastercard: "https://www.mastercard.com",
+    JCB: "https://www.jcb.co.jp/en/",
+    MoMo: "https://momo.vn",
+    ZaloPay: "https://zalopay.vn",
+    "Chuyển khoản": "https://shopee.vn",
+  };
+
   return (
     <footer className="w-screen bg-[#f3dba6] py-12">
       <div className="mx-auto max-w-[1200px] px-4 lg:px-6">
@@ -70,19 +79,27 @@ const Footer = () => {
             <div className="mt-4 grid grid-cols-3 gap-3 items-center">
               {footerPayments.map((key) => (
                 <div key={key} className="flex items-center justify-center">
-                  <img
-                    src={paymentLogos[key]}
-                    alt={key}
-                    title={key}
-                    style={{ width: 96, height: 36, objectFit: "contain" }}
-                    className="bg-white p-1 rounded-md shadow-sm"
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      e.target.src =
-                        "https://via.placeholder.com/96x36?text=" +
-                        encodeURIComponent(key);
-                    }}
-                  />
+                  <a
+                    href={paymentLinks[key] || "#"}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    aria-label={`${key} - mở trang mới`}
+                    className="flex items-center justify-center"
+                  >
+                    <img
+                      src={paymentLogos[key]}
+                      alt={key}
+                      title={key}
+                      style={{ width: 96, height: 36, objectFit: "contain" }}
+                      className="bg-white p-1 rounded-md shadow-sm"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src =
+                          "https://via.placeholder.com/96x36?text=" +
+                          encodeURIComponent(key);
+                      }}
+                    />
+                  </a>
                 </div>
               ))}
             </div>

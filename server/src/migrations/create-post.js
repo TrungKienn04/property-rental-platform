@@ -53,6 +53,20 @@ module.exports = {
             areaNumber: {
                 type: Sequelize.FLOAT
             },
+            status: {
+                type: Sequelize.STRING,
+                allowNull: false,
+                defaultValue: 'published'
+            },
+            moderatedAt: {
+                type: Sequelize.DATE
+            },
+            moderatedBy: {
+                type: Sequelize.STRING
+            },
+            moderationReason: {
+                type: Sequelize.TEXT
+            },
             createdAt: {
                 allowNull: false,
                 type: Sequelize.DATE

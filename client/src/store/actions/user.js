@@ -2,15 +2,31 @@ import actionTypes from "./actionTypes";
 import * as apis from "../../services";
 import { logout } from "./auth";
 
+const { normalizeRole } = require("../../ultils/Common/authHelpers");
+
 export const getCurrent = () => async (dispatch) => {
+  dispatch({
+    type: actionTypes.GET_CURRENT_REQUEST,
+  });
+
   try {
     const response = await apis.apiGetCurrent();
 
     if (response?.data?.err === 0) {
+      const currentData = response.data.response || {};
+
       dispatch({
         type: actionTypes.GET_CURRENT,
-        currentData: response.data.response,
+        currentData,
       });
+
+      if (currentData?.role) {
+        dispatch({
+          type: actionTypes.SET_AUTH_ROLE,
+          data: normalizeRole(currentData.role),
+        });
+      }
+
       return response;
     }
 

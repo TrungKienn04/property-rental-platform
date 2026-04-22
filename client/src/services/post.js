@@ -45,8 +45,8 @@ export const apiUploadImages = (images) =>
   new Promise(async (resolve, reject) => {
     try {
       const hasCloudinaryConfig =
-        Boolean(process.env.REACT_APP_CLOUD_NAME)
-        && Boolean(process.env.REACT_APP_UPLOAD_ASSETS_NAME);
+        Boolean(process.env.REACT_APP_CLOUD_NAME) &&
+        Boolean(process.env.REACT_APP_UPLOAD_ASSETS_NAME);
 
       const response = hasCloudinaryConfig
         ? await axios({
@@ -56,7 +56,7 @@ export const apiUploadImages = (images) =>
           })
         : await axiosConfig({
             method: "post",
-            url: "/api/v1/post/upload-image",
+            url: "/api/v1/user/posts/upload-image",
             data: images,
             headers: {
               "Content-Type": "multipart/form-data",
@@ -74,7 +74,7 @@ export const apiCreateNewPost = (payload) =>
     try {
       const response = await axiosConfig({
         method: "post",
-        url: "/api/v1/post/create-new",
+        url: "/api/v1/user/posts",
         data: payload,
       });
       resolve(response);
@@ -83,12 +83,26 @@ export const apiCreateNewPost = (payload) =>
     }
   });
 
-export const apiGetPostsByCurrentUser = () =>
+export const apiGetUserPosts = () =>
   new Promise(async (resolve, reject) => {
     try {
       const response = await axiosConfig({
         method: "get",
-        url: "/api/v1/post/manage/all",
+        url: "/api/v1/user/posts",
+      });
+      resolve(response);
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+export const apiGetAdminPosts = (query = {}) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosConfig({
+        method: "get",
+        url: "/api/v1/admin/posts",
+        params: query,
       });
       resolve(response);
     } catch (error) {
@@ -101,7 +115,7 @@ export const apiUpdatePost = (postId, payload) =>
     try {
       const response = await axiosConfig({
         method: "put",
-        url: `/api/v1/post/${postId}`,
+        url: `/api/v1/user/posts/${postId}`,
         data: payload,
       });
       resolve(response);
@@ -115,7 +129,7 @@ export const apiDeletePost = (postId) =>
     try {
       const response = await axiosConfig({
         method: "delete",
-        url: `/api/v1/post/${postId}`,
+        url: `/api/v1/user/posts/${postId}`,
       });
       resolve(response);
     } catch (error) {
@@ -123,15 +137,32 @@ export const apiDeletePost = (postId) =>
     }
   });
 
-export const apiForceDeletePost = (postId) =>
+export const apiUpdateAdminPostStatus = (postId, payload) =>
   new Promise(async (resolve, reject) => {
     try {
       const response = await axiosConfig({
-        method: "delete",
-        url: `/api/v1/admin/post/${postId}/force`,
+        method: "patch",
+        url: `/api/v1/admin/posts/${postId}/status`,
+        data: payload,
       });
       resolve(response);
     } catch (error) {
       reject(error);
     }
   });
+
+export const apiDeleteAdminPost = (postId) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const response = await axiosConfig({
+        method: "delete",
+        url: `/api/v1/admin/posts/${postId}`,
+      });
+      resolve(response);
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+export const apiGetPostsByCurrentUser = apiGetUserPosts;
+export const apiForceDeletePost = apiDeleteAdminPost;

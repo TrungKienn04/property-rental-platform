@@ -2,6 +2,25 @@ import { formatVietnameseToString } from "./formatVietnameseToString";
 
 const DEFAULT_TARGET = "Tất cả";
 
+export const POST_STATUS = {
+  DRAFT: "draft",
+  PENDING: "pending",
+  PUBLISHED: "published",
+  REJECTED: "rejected",
+  HIDDEN: "hidden",
+  DELETED: "deleted",
+};
+
+export const ADMIN_POST_FILTERS = [
+  { value: "", label: "Tất cả" },
+  { value: POST_STATUS.PENDING, label: "Chờ duyệt" },
+  { value: POST_STATUS.PUBLISHED, label: "Đang hiển thị" },
+  { value: POST_STATUS.REJECTED, label: "Từ chối" },
+  { value: POST_STATUS.HIDDEN, label: "Đã ẩn" },
+  { value: POST_STATUS.DRAFT, label: "Nháp" },
+  { value: POST_STATUS.DELETED, label: "Đã xóa" },
+];
+
 export const sortByVietnameseName = (items = [], key) => {
   const safeItems = Array.isArray(items) ? [...items] : [];
 
@@ -98,7 +117,8 @@ export const validatePostForm = (values = {}) => {
   }
 
   if (!String(values.exactAddress || "").trim()) {
-    errors.exactAddress = "Nhập số nhà, đường hoặc mô tả địa chỉ cụ thể.";
+    errors.exactAddress =
+      "Nhập số nhà, đường hoặc mô tả địa chỉ cụ thể.";
   }
 
   if (!String(values.province || "").trim()) {
@@ -155,41 +175,159 @@ export const toPostPayload = (values = {}) => ({
 export const getMapEmbedUrl = (address = "") =>
   `https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
 
-export const getPostStatusMeta = (post = {}) => {
-  const expiredAt = post?.overview?.expired
-    ? new Date(post.overview.expired)
-    : null;
+const getExpiryNote = (post = {}) => {
+  const expiredAt = post?.overview?.expired ? new Date(post.overview.expired) : null;
 
   if (!(expiredAt instanceof Date) || Number.isNaN(expiredAt.getTime())) {
-    return {
-      label: "Không rõ",
-      tone: "bg-slate-100 text-slate-600",
-    };
+    return null;
   }
 
-  const now = new Date();
-  const diffInMs = expiredAt.getTime() - now.getTime();
+  const diffInMs = expiredAt.getTime() - Date.now();
   const diffInDays = Math.ceil(diffInMs / (24 * 60 * 60 * 1000));
 
   if (diffInDays < 0) {
     return {
-      label: "Hết hạn",
-      tone: "bg-rose-100 text-rose-700",
+      label: "Đã hết hạn hiển thị",
+      tone: "text-rose-600",
     };
   }
 
   if (diffInDays <= 2) {
     return {
-      label: "Sắp hết hạn",
-      tone: "bg-amber-100 text-amber-700",
+      label: `Sắp hết hạn sau ${diffInDays} ngày`,
+      tone: "text-amber-700",
     };
   }
 
   return {
-    label: "Đang hiển thị",
-    tone: "bg-emerald-100 text-emerald-700",
+    label: `Còn hiển thị khoảng ${diffInDays} ngày`,
+    tone: "text-emerald-700",
   };
 };
+
+export const getPostStatusMeta = (post = {}) => {
+  const normalizedStatus = String(post?.status || "").trim().toLowerCase();
+  const expiryNote = getExpiryNote(post);
+
+  switch (normalizedStatus) {
+    case POST_STATUS.DRAFT:
+      return {
+        key: POST_STATUS.DRAFT,
+        label: "Nháp",
+        tone: "bg-slate-100 text-slate-700",
+        description: "Tin mới lưu nháp, chưa đưa vào luồng duyệt.",
+        note: null,
+      };
+    case POST_STATUS.PENDING:
+      return {
+        key: POST_STATUS.PENDING,
+        label: "Chờ duyệt",
+        tone: "bg-amber-100 text-amber-700",
+        description: "Tin đang chờ quản trị viên kiểm duyệt.",
+        note: null,
+      };
+    case POST_STATUS.REJECTED:
+      return {
+        key: POST_STATUS.REJECTED,
+        label: "Từ chối",
+        tone: "bg-rose-100 text-rose-700",
+        description:
+          post?.moderationReason || "Tin bị từ chối và chưa được hiển thị.",
+        note: null,
+      };
+    case POST_STATUS.HIDDEN:
+      return {
+        key: POST_STATUS.HIDDEN,
+        label: "Đã ẩn",
+        tone: "bg-slate-200 text-slate-700",
+        description:
+          post?.moderationReason || "Tin đã bị ẩn khỏi danh sách công khai.",
+        note: null,
+      };
+    case POST_STATUS.DELETED:
+      return {
+        key: POST_STATUS.DELETED,
+        label: "Đã xóa",
+        tone: "bg-rose-50 text-rose-700",
+        description: "Tin đã bị gỡ khỏi hệ thống.",
+        note: null,
+      };
+    case POST_STATUS.PUBLISHED:
+      return {
+        key: POST_STATUS.PUBLISHED,
+        label: "Đang hiển thị",
+        tone: "bg-emerald-100 text-emerald-700",
+        description: "Tin đang được hiển thị công khai.",
+        note: expiryNote,
+      };
+    default:
+      return {
+        key: normalizedStatus || "unknown",
+        label: "Không rõ",
+        tone: "bg-slate-100 text-slate-600",
+        description: "Trạng thái chưa được đồng bộ đầy đủ từ máy chủ.",
+        note: expiryNote,
+      };
+  }
+};
+
+export const getAdminStatusActions = (post = {}) => {
+  const normalizedStatus = String(post?.status || "").trim().toLowerCase();
+
+  switch (normalizedStatus) {
+    case POST_STATUS.PENDING:
+      return [
+        {
+          key: "approve",
+          nextStatus: POST_STATUS.PUBLISHED,
+          label: "Duyệt",
+          className:
+            "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+        },
+        {
+          key: "reject",
+          nextStatus: POST_STATUS.REJECTED,
+          label: "Từ chối",
+          requiresReason: true,
+          className:
+            "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
+        },
+      ];
+    case POST_STATUS.PUBLISHED:
+      return [
+        {
+          key: "hide",
+          nextStatus: POST_STATUS.HIDDEN,
+          label: "Ẩn bài",
+          requiresReason: true,
+          className:
+            "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200",
+        },
+      ];
+    case POST_STATUS.HIDDEN:
+      return [
+        {
+          key: "restore",
+          nextStatus: POST_STATUS.PUBLISHED,
+          label: "Hiện lại",
+          className:
+            "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+        },
+      ];
+    default:
+      return [];
+  }
+};
+
+export const countPostsByStatus = (posts = []) =>
+  (Array.isArray(posts) ? posts : []).reduce((accumulator, item) => {
+    const normalizedStatus = String(item?.status || "").trim().toLowerCase() || "unknown";
+
+    return {
+      ...accumulator,
+      [normalizedStatus]: (accumulator[normalizedStatus] || 0) + 1,
+    };
+  }, {});
 
 export const createDetailPath = (post = {}) =>
   `/chi-tiet/${formatVietnameseToString(post?.title || "tin-dang")}/${post?.id || ""}`;

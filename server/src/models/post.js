@@ -2,6 +2,12 @@
 const {
     Model
 } = require('sequelize');
+
+const {
+    POST_STATUSES,
+    POST_STATUS_PUBLISHED,
+} = require('../ultis/accessControl');
+
 module.exports = (sequelize, DataTypes) => {
     class Post extends Model {
         /**
@@ -33,6 +39,17 @@ module.exports = (sequelize, DataTypes) => {
         imagesId: DataTypes.STRING,
         priceNumber: DataTypes.FLOAT,
         areaNumber: DataTypes.FLOAT,
+        status: {
+            type: DataTypes.STRING,
+            allowNull: false,
+            defaultValue: POST_STATUS_PUBLISHED,
+            validate: {
+                isIn: [POST_STATUSES],
+            },
+        },
+        moderatedAt: DataTypes.DATE,
+        moderatedBy: DataTypes.STRING,
+        moderationReason: DataTypes.TEXT,
     }, {
         sequelize,
         modelName: 'Post',

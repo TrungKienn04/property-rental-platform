@@ -2,6 +2,13 @@
 const {
   Model
 } = require('sequelize');
+
+const {
+  USER_ROLES,
+  USER_STATUS_ACTIVE,
+  USER_STATUSES,
+} = require('../ultis/accessControl');
+
 module.exports = (sequelize, DataTypes) => {
   class User extends Model {
     /**
@@ -31,9 +38,19 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: 'user',
       validate: {
-        isIn: [['user', 'admin']],
+        isIn: [USER_ROLES],
       },
     },
+    status: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: USER_STATUS_ACTIVE,
+      validate: {
+        isIn: [USER_STATUSES],
+      },
+    },
+    blockedAt: DataTypes.DATE,
+    blockedReason: DataTypes.STRING,
     zalo: DataTypes.STRING,
     fbUrl: DataTypes.STRING,
     avatar: DataTypes.BLOB,
