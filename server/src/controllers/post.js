@@ -5,7 +5,12 @@ const {
   normalizePostPayload,
   validatePostPayload,
 } = require("../ultis/postPayload");
-const { isAdminRole } = require("../ultis/accessControl");
+const { isAdminRole, parsePostStatus } = require("../ultis/accessControl");
+
+const normalizePage = (value) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+};
 
 export const getPosts = async (_req, res) => {
   try {
@@ -106,9 +111,44 @@ export const getPostsByCurrentUser = async (req, res) => {
   const { id, role } = req.user || {};
 
   try {
+    const requestedStatus = String(req.query?.status || "").trim();
+    let normalizedStatus;
+    const filters = {};
+
+    if (requestedStatus) {
+      normalizedStatus = parsePostStatus(requestedStatus);
+
+      if (!normalizedStatus) {
+        return res.status(400).json({
+          err: 1,
+          msg: "Trang thai bai dang khong hop le.",
+          response: null,
+        });
+      }
+    }
+
+    if (normalizedStatus) {
+      filters.status = normalizedStatus;
+    }
+
+    if (req.query?.userId) {
+      filters.userId = String(req.query.userId).trim();
+    }
+
+    if (req.query?.provinceCode) {
+      filters.provinceCode = String(req.query.provinceCode).trim();
+    }
+
     const response = isAdminRole(role)
-      ? await postService.getAllManagedPostsService(req.query || {})
-      : await postService.getPostsByUserService(id);
+      ? await postService.getAllManagedPostsService(filters, {
+          page: normalizePage(req.query?.page),
+          limit: req.query?.limit,
+        })
+      : await postService.getPostsByUserService(id, {
+        status: normalizedStatus,
+        page: normalizePage(req.query?.page),
+          limit: req.query?.limit,
+        });
 
     return res.status(200).json(response);
   } catch (error) {
@@ -121,45 +161,19 @@ export const getPostsByCurrentUser = async (req, res) => {
 };
 
 export const updatePost = async (req, res) => {
-  const { id } = req.user || {};
-  const { id: postId } = req.params;
-  const normalizedPayload = normalizePostPayload(req.body);
-  const validationMessage = validatePostPayload(normalizedPayload);
-
-  if (validationMessage) {
-    return res.status(400).json({
-      err: 1,
-      msg: validationMessage,
-      response: null,
-    });
-  }
-
-  try {
-    const response = await postService.updatePostService(postId, normalizedPayload, id);
-    return res.status(response?.err === 0 ? 200 : 404).json(response);
-  } catch (error) {
-    return res.status(500).json({
-      err: -1,
-      msg: `Failed at post controller: ${error}`,
-      response: null,
-    });
-  }
+  return res.status(403).json({
+    err: 1,
+    msg: "Khong duoc phep chinh sua bai dang trong workflow hien tai.",
+    response: null,
+  });
 };
 
 export const deletePost = async (req, res) => {
-  const { id } = req.user || {};
-  const { id: postId } = req.params;
-
-  try {
-    const response = await postService.deletePostService(postId, id);
-    return res.status(response?.err === 0 ? 200 : 404).json(response);
-  } catch (error) {
-    return res.status(500).json({
-      err: -1,
-      msg: `Failed at post controller: ${error}`,
-      response: null,
-    });
-  }
+  return res.status(403).json({
+    err: 1,
+    msg: "Khong duoc phep xoa bai dang trong workflow hien tai.",
+    response: null,
+  });
 };
 
 export const uploadImage = async (req, res) => {

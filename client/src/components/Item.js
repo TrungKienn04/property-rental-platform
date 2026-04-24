@@ -1,19 +1,11 @@
 import React, { memo, useEffect, useState } from "react";
-import Swal from "sweetalert2";
 import { Link } from "react-router-dom";
-import { useSelector } from "react-redux";
 import icons from "../ultils/icons";
 import { formatVietnameseToString } from "../ultils/Common/formatVietnameseToString";
-import { apiDeletePost, apiForceDeletePost } from "../services";
-
-const {
-  canDeletePost,
-} = require("../ultils/Common/postPermissions");
-const { isAdminRole } = require("../ultils/Common/authHelpers");
-const {
+import {
   getDisplayDescription,
   getShortAddress,
-} = require("../ultils/Common/postHelpers");
+} from "../ultils/Common/postHelpers";
 
 const { GrStar, RiHeartFill, RiHeartLine, BsBookmarkStarFill } = icons;
 
@@ -23,30 +15,17 @@ const normalizeImages = (images) =>
 const Item = ({
   images,
   user,
-  userId,
   title,
   star,
   description,
   attributes,
   address,
   id,
-  onDeleteSuccess,
 }) => {
   const [isHoverHeart, setIsHoverHeart] = useState(false);
   const [hiddenImages, setHiddenImages] = useState([]);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const { role: storedRole } = useSelector((state) => state.auth);
-  const { currentData } = useSelector((state) => state.user);
   const placeholder = "/placeholder.svg";
   const safeImages = normalizeImages(images);
-  const resolvedRole = currentData?.role || storedRole;
-  const isAdmin = isAdminRole(resolvedRole);
-  const canDeleteCurrentPost = canDeletePost({
-    role: resolvedRole,
-    currentUserId: currentData?.id,
-    currentUserStatus: currentData?.status,
-    post: { id, userId },
-  });
 
   useEffect(() => {
     setHiddenImages([]);
@@ -62,55 +41,6 @@ const Item = ({
   const handleHideImage = (image) => {
     if (!image) return;
     setHiddenImages((prev) => (prev.includes(image) ? prev : [...prev, image]));
-  };
-
-  const handleDeletePost = async () => {
-    const confirmation = await Swal.fire({
-      icon: "warning",
-      title: isAdmin ? "Xóa bài đăng khỏi hệ thống?" : "Xóa bài đăng của bạn?",
-      text: isAdmin
-        ? "Bài đăng sẽ bị gỡ khỏi toàn bộ hệ thống. Thao tác này không thể hoàn tác."
-        : "Bài đăng sẽ bị xóa khỏi danh sách quản lý và các dữ liệu hiển thị liên quan.",
-      showCancelButton: true,
-      confirmButtonText: "Xóa bài đăng",
-      cancelButtonText: "Quay lại",
-      confirmButtonColor: "#dc2626",
-    });
-
-    if (!confirmation.isConfirmed) return;
-
-    setIsDeleting(true);
-
-    try {
-      const response = isAdmin
-        ? await apiForceDeletePost(id)
-        : await apiDeletePost(id);
-
-      if (response?.data?.err === 0) {
-        await onDeleteSuccess?.();
-
-        await Swal.fire({
-          icon: "success",
-          title: "Đã xóa bài đăng",
-          text: "Danh sách hiển thị đã được đồng bộ lại.",
-        });
-        return;
-      }
-
-      await Swal.fire({
-        icon: "error",
-        title: "Không thể xóa",
-        text: response?.data?.msg || "Có lỗi xảy ra khi xóa bài đăng.",
-      });
-    } catch (error) {
-      await Swal.fire({
-        icon: "error",
-        title: "Không thể xóa",
-        text: error?.response?.data?.msg || "Có lỗi xảy ra khi xóa bài đăng.",
-      });
-    } finally {
-      setIsDeleting(false);
-    }
   };
 
   return (
@@ -238,20 +168,6 @@ const Item = ({
               >
                 Xem chi tiết
               </Link>
-              {canDeleteCurrentPost && (
-                <button
-                  type="button"
-                  disabled={isDeleting}
-                  onClick={handleDeletePost}
-                  className="inline-flex min-h-[46px] w-full items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600 transition hover:bg-rose-100 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-[120px] sm:w-auto"
-                >
-                  {isDeleting
-                    ? "Đang xóa..."
-                    : isAdmin && currentData?.id !== userId
-                      ? "Xóa bài"
-                      : "Xóa tin"}
-                </button>
-              )}
             </div>
           </div>
         </div>

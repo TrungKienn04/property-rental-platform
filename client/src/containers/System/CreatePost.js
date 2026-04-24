@@ -39,7 +39,7 @@ const CreatePost = () => {
       await Swal.fire({
         icon: "warning",
         title: "Không thể tạo bài đăng",
-        text: "Frontend đang phản ánh trạng thái tài khoản từ backend nên không mở thao tác tạo mới cho tài khoản này.",
+        text: "Tài khoản hiện tại không được phép tạo bài đăng mới.",
       });
       return;
     }
@@ -60,7 +60,7 @@ const CreatePost = () => {
         await Swal.fire({
           icon: "success",
           title: "Đăng tin thành công",
-          text: "Tin mới đã được lưu theo dữ liệu backend và danh sách công khai đã được đồng bộ lại.",
+          text: "Bài đăng đã được lưu ở trạng thái chờ duyệt và chưa hiển thị công khai.",
           confirmButtonText: "Đi tới quản lý tin",
         });
 
@@ -93,12 +93,12 @@ const CreatePost = () => {
       <SystemPageHeader
         eyebrow="Bài đăng"
         title="Tạo bài đăng mới"
-        description="Frontend chỉ gửi dữ liệu nội dung, còn trạng thái hiển thị cuối cùng sẽ do backend quyết định."
+        description="Bài đăng mới luôn được backend lưu ở trạng thái chờ duyệt. Chỉ admin mới có quyền duyệt hiển thị công khai."
       />
 
       {!canCreate ? (
         <section className="rounded-[24px] border border-rose-200 bg-rose-50 px-5 py-5 text-sm leading-7 text-rose-700">
-          Tài khoản hiện không ở trạng thái được phép tạo bài đăng mới. Nếu backend đã khóa tài khoản hoặc trả role không hợp lệ, giao diện sẽ dừng tại đây.
+          Tài khoản hiện không ở trạng thái được phép tạo bài đăng mới.
         </section>
       ) : null}
 

@@ -1,9 +1,10 @@
 import { formatVietnameseToString } from "./formatVietnameseToString";
 
-const DEFAULT_TARGET = "Tất cả";
+const DEFAULT_TARGET = "Tat ca";
+
+export const SYSTEM_POST_PAGE_SIZE = 10;
 
 export const POST_STATUS = {
-  DRAFT: "draft",
   PENDING: "pending",
   PUBLISHED: "published",
   REJECTED: "rejected",
@@ -12,13 +13,12 @@ export const POST_STATUS = {
 };
 
 export const ADMIN_POST_FILTERS = [
-  { value: "", label: "Tất cả" },
-  { value: POST_STATUS.PENDING, label: "Chờ duyệt" },
-  { value: POST_STATUS.PUBLISHED, label: "Đang hiển thị" },
-  { value: POST_STATUS.REJECTED, label: "Từ chối" },
-  { value: POST_STATUS.HIDDEN, label: "Đã ẩn" },
-  { value: POST_STATUS.DRAFT, label: "Nháp" },
-  { value: POST_STATUS.DELETED, label: "Đã xóa" },
+  { value: "", label: "Tat ca" },
+  { value: POST_STATUS.PENDING, label: "Cho duyet" },
+  { value: POST_STATUS.PUBLISHED, label: "Dang hien thi" },
+  { value: POST_STATUS.REJECTED, label: "Tu choi" },
+  { value: POST_STATUS.HIDDEN, label: "Da an" },
+  { value: POST_STATUS.DELETED, label: "Da xoa" },
 ];
 
 export const sortByVietnameseName = (items = [], key) => {
@@ -107,51 +107,50 @@ export const normalizePostFormFromRecord = (post = {}) => {
 export const validatePostForm = (values = {}) => {
   const errors = {};
 
-  if (!values.categoryCode) errors.categoryCode = "Chọn danh mục.";
+  if (!values.categoryCode) errors.categoryCode = "Chon danh muc.";
 
   const title = String(values.title || "").trim();
   if (!title) {
-    errors.title = "Nhập tiêu đề tin đăng.";
+    errors.title = "Nhap tieu de tin dang.";
   } else if (title.length < 10) {
-    errors.title = "Tiêu đề cần tối thiểu 10 ký tự.";
+    errors.title = "Tieu de can toi thieu 10 ky tu.";
   }
 
   if (!String(values.exactAddress || "").trim()) {
-    errors.exactAddress =
-      "Nhập số nhà, đường hoặc mô tả địa chỉ cụ thể.";
+    errors.exactAddress = "Nhap dia chi cu the.";
   }
 
   if (!String(values.province || "").trim()) {
-    errors.province = "Chọn tỉnh/thành phố.";
+    errors.province = "Chon tinh/thanh pho.";
   }
 
   if (!String(values.district || "").trim()) {
-    errors.district = "Chọn quận/huyện.";
+    errors.district = "Chon quan/huyen.";
   }
 
   const priceNumber = Number(values.priceNumber);
   if (!values.priceNumber || Number.isNaN(priceNumber) || priceNumber <= 0) {
-    errors.priceNumber = "Nhập giá cho thuê hợp lệ.";
+    errors.priceNumber = "Nhap gia cho thue hop le.";
   }
 
   const areaNumber = Number(values.areaNumber);
   if (!values.areaNumber || Number.isNaN(areaNumber) || areaNumber <= 0) {
-    errors.areaNumber = "Nhập diện tích hợp lệ.";
+    errors.areaNumber = "Nhap dien tich hop le.";
   }
 
   const descriptionLines = textareaToDescriptionLines(values.description);
   if (!descriptionLines.length) {
-    errors.description = "Nhập nội dung mô tả.";
+    errors.description = "Nhap noi dung mo ta.";
   } else if (descriptionLines.join(" ").length < 20) {
-    errors.description = "Nội dung mô tả cần tối thiểu 20 ký tự.";
+    errors.description = "Noi dung mo ta can toi thieu 20 ky tu.";
   }
 
   if (!Array.isArray(values.images) || !values.images.length) {
-    errors.images = "Tải lên ít nhất 1 ảnh.";
+    errors.images = "Tai len it nhat 1 anh.";
   }
 
   if (!String(values.address || buildFullAddress(values)).trim()) {
-    errors.address = "Địa chỉ đang chưa hoàn chỉnh.";
+    errors.address = "Dia chi dang chua hoan chinh.";
   }
 
   return errors;
@@ -187,20 +186,20 @@ const getExpiryNote = (post = {}) => {
 
   if (diffInDays < 0) {
     return {
-      label: "Đã hết hạn hiển thị",
+      label: "Da het han hien thi",
       tone: "text-rose-600",
     };
   }
 
   if (diffInDays <= 2) {
     return {
-      label: `Sắp hết hạn sau ${diffInDays} ngày`,
+      label: `Sap het han sau ${diffInDays} ngay`,
       tone: "text-amber-700",
     };
   }
 
   return {
-    label: `Còn hiển thị khoảng ${diffInDays} ngày`,
+    label: `Con hien thi khoang ${diffInDays} ngay`,
     tone: "text-emerald-700",
   };
 };
@@ -210,108 +209,183 @@ export const getPostStatusMeta = (post = {}) => {
   const expiryNote = getExpiryNote(post);
 
   switch (normalizedStatus) {
-    case POST_STATUS.DRAFT:
-      return {
-        key: POST_STATUS.DRAFT,
-        label: "Nháp",
-        tone: "bg-slate-100 text-slate-700",
-        description: "Tin mới lưu nháp, chưa đưa vào luồng duyệt.",
-        note: null,
-      };
     case POST_STATUS.PENDING:
       return {
         key: POST_STATUS.PENDING,
-        label: "Chờ duyệt",
+        label: "Cho duyet",
         tone: "bg-amber-100 text-amber-700",
-        description: "Tin đang chờ quản trị viên kiểm duyệt.",
+        description: "Tin dang cho admin kiem duyet va chua hien thi cong khai.",
         note: null,
       };
     case POST_STATUS.REJECTED:
       return {
         key: POST_STATUS.REJECTED,
-        label: "Từ chối",
+        label: "Tu choi",
         tone: "bg-rose-100 text-rose-700",
         description:
-          post?.moderationReason || "Tin bị từ chối và chưa được hiển thị.",
+          post?.moderationReason || "Tin da bi tu choi va khong hien thi cong khai.",
         note: null,
       };
     case POST_STATUS.HIDDEN:
       return {
         key: POST_STATUS.HIDDEN,
-        label: "Đã ẩn",
+        label: "Da an",
         tone: "bg-slate-200 text-slate-700",
         description:
-          post?.moderationReason || "Tin đã bị ẩn khỏi danh sách công khai.",
+          post?.moderationReason || "Tin da bi an khoi danh sach cong khai.",
         note: null,
       };
     case POST_STATUS.DELETED:
       return {
         key: POST_STATUS.DELETED,
-        label: "Đã xóa",
+        label: "Da xoa",
         tone: "bg-rose-50 text-rose-700",
-        description: "Tin đã bị gỡ khỏi hệ thống.",
+        description: "Tin da bi xoa mem va dang cho xoa vinh vien neu can.",
         note: null,
       };
     case POST_STATUS.PUBLISHED:
       return {
         key: POST_STATUS.PUBLISHED,
-        label: "Đang hiển thị",
+        label: "Dang hien thi",
         tone: "bg-emerald-100 text-emerald-700",
-        description: "Tin đang được hiển thị công khai.",
+        description: "Tin dang duoc hien thi cong khai.",
         note: expiryNote,
       };
     default:
       return {
         key: normalizedStatus || "unknown",
-        label: "Không rõ",
+        label: "Khong ro",
         tone: "bg-slate-100 text-slate-600",
-        description: "Trạng thái chưa được đồng bộ đầy đủ từ máy chủ.",
+        description: "Trang thai hien tai khong hop le hoac chua dong bo dung.",
         note: expiryNote,
       };
   }
 };
 
+const getDeletedRestoreStatus = (post = {}) => {
+  const normalizedStatus = String(post?.deletedFromStatus || "")
+    .trim()
+    .toLowerCase();
+
+  return [
+    POST_STATUS.PENDING,
+    POST_STATUS.PUBLISHED,
+    POST_STATUS.REJECTED,
+    POST_STATUS.HIDDEN,
+  ].includes(normalizedStatus)
+    ? normalizedStatus
+    : "";
+};
+
 export const getAdminStatusActions = (post = {}) => {
   const normalizedStatus = String(post?.status || "").trim().toLowerCase();
+  const deletedRestoreStatus = getDeletedRestoreStatus(post);
 
   switch (normalizedStatus) {
     case POST_STATUS.PENDING:
       return [
         {
           key: "approve",
+          actionType: "status",
           nextStatus: POST_STATUS.PUBLISHED,
-          label: "Duyệt",
+          label: "Duyet",
           className:
             "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
         },
         {
           key: "reject",
+          actionType: "status",
           nextStatus: POST_STATUS.REJECTED,
-          label: "Từ chối",
-          requiresReason: true,
+          label: "Tu choi",
           className:
             "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
+        },
+        {
+          key: "soft-delete-pending",
+          actionType: "status",
+          nextStatus: POST_STATUS.DELETED,
+          label: "Xoa",
+          className:
+            "border-rose-200 bg-white text-rose-600 hover:bg-rose-50 hover:text-rose-700",
+        },
+      ];
+    case POST_STATUS.REJECTED:
+      return [
+        {
+          key: "reopen-rejected",
+          actionType: "status",
+          nextStatus: POST_STATUS.PENDING,
+          label: "Go",
+          className:
+            "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
+        },
+        {
+          key: "soft-delete-rejected",
+          actionType: "status",
+          nextStatus: POST_STATUS.DELETED,
+          label: "Xoa",
+          className:
+            "border-rose-200 bg-white text-rose-600 hover:bg-rose-50 hover:text-rose-700",
         },
       ];
     case POST_STATUS.PUBLISHED:
       return [
         {
           key: "hide",
+          actionType: "status",
           nextStatus: POST_STATUS.HIDDEN,
-          label: "Ẩn bài",
-          requiresReason: true,
+          label: "An",
           className:
             "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200",
+        },
+        {
+          key: "soft-delete-published",
+          actionType: "status",
+          nextStatus: POST_STATUS.DELETED,
+          label: "Xoa",
+          className:
+            "border-rose-200 bg-white text-rose-600 hover:bg-rose-50 hover:text-rose-700",
         },
       ];
     case POST_STATUS.HIDDEN:
       return [
         {
-          key: "restore",
+          key: "unhide",
+          actionType: "status",
           nextStatus: POST_STATUS.PUBLISHED,
-          label: "Hiện lại",
+          label: "Go",
           className:
             "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+        },
+        {
+          key: "soft-delete-hidden",
+          actionType: "status",
+          nextStatus: POST_STATUS.DELETED,
+          label: "Xoa",
+          className:
+            "border-rose-200 bg-white text-rose-600 hover:bg-rose-50 hover:text-rose-700",
+        },
+      ];
+    case POST_STATUS.DELETED:
+      return [
+        ...(deletedRestoreStatus
+          ? [
+              {
+                key: "restore-deleted",
+                actionType: "status",
+                nextStatus: deletedRestoreStatus,
+                label: "Hoan tac",
+                className:
+                  "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100",
+              },
+            ]
+          : []),
+        {
+          key: "force-delete",
+          actionType: "force-delete",
+          label: "Xoa vinh vien",
+          className:
+            "border-rose-600 bg-rose-600 text-white hover:bg-rose-700",
         },
       ];
     default:

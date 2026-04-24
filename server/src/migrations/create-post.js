@@ -56,7 +56,7 @@ module.exports = {
             status: {
                 type: Sequelize.STRING,
                 allowNull: false,
-                defaultValue: 'published'
+                defaultValue: 'pending'
             },
             moderatedAt: {
                 type: Sequelize.DATE

@@ -5,7 +5,8 @@ const {
 
 const {
     POST_STATUSES,
-    POST_STATUS_PUBLISHED,
+    POST_STATUS_PENDING,
+    RESTORABLE_POST_STATUSES,
 } = require('../ultis/accessControl');
 
 module.exports = (sequelize, DataTypes) => {
@@ -42,7 +43,7 @@ module.exports = (sequelize, DataTypes) => {
         status: {
             type: DataTypes.STRING,
             allowNull: false,
-            defaultValue: POST_STATUS_PUBLISHED,
+            defaultValue: POST_STATUS_PENDING,
             validate: {
                 isIn: [POST_STATUSES],
             },
@@ -50,6 +51,13 @@ module.exports = (sequelize, DataTypes) => {
         moderatedAt: DataTypes.DATE,
         moderatedBy: DataTypes.STRING,
         moderationReason: DataTypes.TEXT,
+        deletedFromStatus: {
+            type: DataTypes.STRING,
+            allowNull: true,
+            validate: {
+                isIn: [RESTORABLE_POST_STATUSES],
+            },
+        },
     }, {
         sequelize,
         modelName: 'Post',

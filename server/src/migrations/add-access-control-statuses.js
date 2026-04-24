@@ -68,6 +68,12 @@ module.exports = {
       WHERE status IS NULL OR status = ''
     `);
 
+    await queryInterface.sequelize.query(`
+      UPDATE \`Posts\`
+      SET status = 'pending'
+      WHERE LOWER(status) = 'draft'
+    `);
+
     const userIndexes = await queryInterface.showIndex("Users");
     const hasUsersStatusRoleIndex = userIndexes.some(
       (index) => index.name === "users_status_role_idx",

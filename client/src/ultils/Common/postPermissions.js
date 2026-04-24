@@ -11,30 +11,22 @@ const getPostOwnerId = (post = {}) =>
 
 const canDeletePost = ({ role, currentUserId, post, currentUserStatus } = {}) => {
   const postId = normalizeId(post?.id);
-  const ownerId = getPostOwnerId(post);
-  const userId = normalizeId(currentUserId);
 
   if (!postId) return false;
-  if (isAdminRole(role)) return true;
   if (isBlockedUserStatus(currentUserStatus)) return false;
 
-  return Boolean(userId && ownerId && userId === ownerId);
+  return isAdminRole(role);
 };
 
 const canEditManagedPost = ({
   role,
-  currentUserId,
   currentUserStatus,
-  post,
 } = {}) => {
-  const ownerId = getPostOwnerId(post);
-  const userId = normalizeId(currentUserId);
-
   if (isAdminRole(role) || isBlockedUserStatus(currentUserStatus)) {
     return false;
   }
 
-  return Boolean(userId && ownerId && userId === ownerId);
+  return false;
 };
 
 const canCreatePost = ({ role, currentUserStatus } = {}) =>

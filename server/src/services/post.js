@@ -1,13 +1,20 @@
 import db from "../models";
+import fs from "fs/promises";
+import path from "path";
 import { v4 } from "uuid";
 import generateCode from "../ultis/generateCode";
 import { dataArea, dataPrice } from "../ultis/data";
 
 const { buildPostWhereClause } = require("../ultis/postFilters");
 const {
+  canRestoreDeletedPostStatus,
+  canTransitionPostStatus,
   isAdminRole,
   isPublishedPostStatus,
+  normalizeDeletedFromStatus,
   normalizePostStatus,
+  parsePostStatus,
+  POST_STATUS_DELETED,
   POST_STATUS_HIDDEN,
   POST_STATUS_PENDING,
   POST_STATUS_PUBLISHED,
@@ -28,6 +35,8 @@ const {
 } = require("../ultis/priceAreaCode");
 
 const DEFAULT_EXPIRED_DAYS = 10;
+const MANAGED_POST_PAGE_LIMIT = 10;
+const LOCAL_POST_UPLOADS_DIR = path.resolve(process.cwd(), "uploads", "posts");
 
 const baseListIncludes = [
   { model: db.Image, as: "images", attributes: ["image"] },
@@ -52,7 +61,15 @@ const managementPostIncludes = [
   {
     model: db.Overview,
     as: "overview",
-    attributes: ["code", "area", "type", "target", "bonus", "created", "expired"],
+    attributes: [
+      "code",
+      "area",
+      "type",
+      "target",
+      "bonus",
+      "created",
+      "expired",
+    ],
   },
 ];
 
@@ -68,6 +85,7 @@ const mapUserResponse = (user) => {
 const mapPostResponse = (record) => ({
   ...record,
   status: normalizePostStatus(record?.status),
+  deletedFromStatus: normalizeDeletedFromStatus(record?.deletedFromStatus),
   user: mapUserResponse(record?.user),
   images: { image: normalizeImageList(record?.images?.image) },
   description: normalizeDescription(record?.description),
@@ -85,17 +103,15 @@ const canViewManagedPost = (post, viewer = {}) => {
   if (isAdminRole(viewer.role)) return true;
 
   return Boolean(
-    String(viewer.id || "").trim()
-    && String(post.userId || "").trim()
-    && String(viewer.id || "").trim() === String(post.userId || "").trim(),
+    String(viewer.id || "").trim() &&
+    String(post.userId || "").trim() &&
+    String(viewer.id || "").trim() === String(post.userId || "").trim(),
   );
 };
 
 const normalizeDescriptionInput = (value) => {
   if (Array.isArray(value)) {
-    return value
-      .map((item) => String(item || "").trim())
-      .filter(Boolean);
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
   }
 
   return String(value || "")
@@ -107,7 +123,181 @@ const normalizeDescriptionInput = (value) => {
 const serializeDescription = (value) =>
   JSON.stringify(normalizeDescriptionInput(value));
 
-const normalizeImagePayload = (images) => normalizeImageList(images).filter(Boolean);
+const normalizeImagePayload = (images) =>
+  normalizeImageList(images).filter(Boolean);
+
+const normalizePositiveInteger = (value, fallback = 1) => {
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+};
+
+const normalizeManagedListOptions = (options = {}) => ({
+  page: normalizePositiveInteger(options.page, 1),
+  limit: Math.min(
+    normalizePositiveInteger(options.limit, MANAGED_POST_PAGE_LIMIT),
+    MANAGED_POST_PAGE_LIMIT,
+  ),
+});
+
+const resolveModerationReasonForStatusChange = ({
+  currentStatus,
+  nextStatus,
+  currentReason,
+  nextReason,
+}) => {
+  if (nextStatus === POST_STATUS_DELETED) {
+    return [POST_STATUS_REJECTED, POST_STATUS_HIDDEN].includes(currentStatus)
+      ? String(currentReason || "").trim() || null
+      : null;
+  }
+
+  if (
+    currentStatus === POST_STATUS_DELETED &&
+    [POST_STATUS_REJECTED, POST_STATUS_HIDDEN].includes(nextStatus)
+  ) {
+    return (
+      String(currentReason || "").trim() ||
+      String(nextReason || "").trim() ||
+      null
+    );
+  }
+
+  if ([POST_STATUS_REJECTED, POST_STATUS_HIDDEN].includes(nextStatus)) {
+    return String(nextReason || "").trim() || null;
+  }
+
+  return null;
+};
+
+const buildPaginatedPayload = ({
+  rows = [],
+  count = 0,
+  page = 1,
+  limit = MANAGED_POST_PAGE_LIMIT,
+  countsByStatus = {},
+}) => ({
+  rows,
+  count,
+  page,
+  limit,
+  totalPages: count ? Math.ceil(count / limit) : 0,
+  countsByStatus,
+});
+
+const resolveManagedPage = (count, requestedPage, limit) => {
+  const totalPages = count ? Math.ceil(count / limit) : 0;
+
+  if (!totalPages) {
+    return 1;
+  }
+
+  return Math.min(requestedPage, totalPages);
+};
+
+const buildCountsByStatus = async (where = {}) => {
+  const groupedStatuses = await db.Post.findAll({
+    where,
+    raw: true,
+    attributes: [
+      "status",
+      [db.sequelize.fn("COUNT", db.sequelize.col("id")), "count"],
+    ],
+    group: ["status"],
+  });
+
+  return (groupedStatuses || []).reduce((accumulator, item) => {
+    const statusKey = normalizePostStatus(item?.status, POST_STATUS_PENDING);
+    const count = Number(item?.count) || 0;
+
+    if (!statusKey || !count) {
+      return accumulator;
+    }
+
+    return {
+      ...accumulator,
+      [statusKey]: (accumulator[statusKey] || 0) + count,
+    };
+  }, {});
+};
+
+const normalizeStoredImageList = (imageRecord) =>
+  normalizeImageList(imageRecord?.image).filter(Boolean);
+
+const isPathInsideDirectory = (candidatePath, directoryPath) => {
+  const normalizedCandidate = path.resolve(candidatePath);
+  const normalizedDirectory = path.resolve(directoryPath);
+
+  return (
+    normalizedCandidate === normalizedDirectory ||
+    normalizedCandidate.startsWith(`${normalizedDirectory}${path.sep}`)
+  );
+};
+
+const resolveLocalPostUploadPath = (imageUrl) => {
+  const rawValue = String(imageUrl || "").trim();
+
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(rawValue);
+
+    if (!parsedUrl.pathname.startsWith("/uploads/posts/")) {
+      return null;
+    }
+
+    const absolutePath = path.resolve(
+      process.cwd(),
+      parsedUrl.pathname.replace(/^\/+/, "").replace(/\//g, path.sep),
+    );
+
+    return isPathInsideDirectory(absolutePath, LOCAL_POST_UPLOADS_DIR)
+      ? absolutePath
+      : null;
+  } catch (error) {
+    const normalizedPath = rawValue
+      .replace(/^https?:\/\/[^/]+/i, "")
+      .replace(/^\/+/, "")
+      .replace(/\//g, path.sep);
+
+    if (!normalizedPath.startsWith(`uploads${path.sep}posts${path.sep}`)) {
+      return null;
+    }
+
+    const absolutePath = path.resolve(process.cwd(), normalizedPath);
+    return isPathInsideDirectory(absolutePath, LOCAL_POST_UPLOADS_DIR)
+      ? absolutePath
+      : null;
+  }
+};
+
+const removeLocalPostAssets = async (imageUrls = []) => {
+  const assetPaths = Array.from(
+    new Set(
+      (Array.isArray(imageUrls) ? imageUrls : [])
+        .map(resolveLocalPostUploadPath)
+        .filter(Boolean),
+    ),
+  );
+
+  await Promise.all(
+    assetPaths.map(async (assetPath) => {
+      try {
+        await fs.unlink(assetPath);
+      } catch (error) {
+        if (error?.code !== "ENOENT") {
+          console.error(`Failed to remove post asset ${assetPath}:`, error);
+        }
+      }
+    }),
+  );
+};
 
 const buildPostWritePayload = async (body = {}) => {
   const [priceCatalog, areaCatalog, category] = await Promise.all([
@@ -138,14 +328,14 @@ const buildPostWritePayload = async (body = {}) => {
   const normalizedAreaNumber =
     derivedCodes.areaNumber ?? Number(body.areaNumber);
   const normalizedImages = normalizeImagePayload(body.images);
-  const provinceName = String(body.province || "")
-    .trim()
-    || String(body.address || "")
+  const provinceName =
+    String(body.province || "").trim() ||
+    String(body.address || "")
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean)
-      .slice(-1)[0]
-    || "";
+      .slice(-1)[0] ||
+    "";
   const provinceCode =
     body.provinceCode ||
     resolveProvinceCodeFromAddress(provinceName, []) ||
@@ -311,6 +501,7 @@ export const getPostByIdService = (id, viewer = {}) =>
           "userId",
           "createdAt",
           "status",
+          "deletedFromStatus",
           "moderatedAt",
           "moderatedBy",
           "moderationReason",
@@ -360,51 +551,64 @@ export const createNewPostService = (body, userId) =>
         provinceName,
       } = await buildPostWritePayload(body);
 
-      await db.Post.create({
-        id: postId,
-        title: body.title,
-        labelCode,
-        address: body.address || "",
-        attributesId,
-        categoryCode: body.categoryCode,
-        description: serializeDescription(body.description),
-        userId,
-        overviewId,
-        imagesId,
-        areaCode: derivedCodes.areaCode || body.areaCode || null,
-        priceCode: derivedCodes.priceCode || body.priceCode || null,
-        provinceCode,
-        priceNumber: normalizedPriceNumber,
-        areaNumber: normalizedAreaNumber,
-        status: POST_STATUS_PUBLISHED,
-        moderatedAt: null,
-        moderatedBy: null,
-        moderationReason: null,
-      }, { transaction });
+      await db.Post.create(
+        {
+          id: postId,
+          title: body.title,
+          labelCode,
+          address: body.address || "",
+          attributesId,
+          categoryCode: body.categoryCode,
+          description: serializeDescription(body.description),
+          userId,
+          overviewId,
+          imagesId,
+          areaCode: derivedCodes.areaCode || body.areaCode || null,
+          priceCode: derivedCodes.priceCode || body.priceCode || null,
+          provinceCode,
+          priceNumber: normalizedPriceNumber,
+          areaNumber: normalizedAreaNumber,
+          status: POST_STATUS_PENDING,
+          deletedFromStatus: null,
+          moderatedAt: null,
+          moderatedBy: null,
+          moderationReason: null,
+        },
+        { transaction },
+      );
 
-      await db.Attribute.create({
-        id: attributesId,
-        price: formatPriceAttribute(normalizedPriceNumber),
-        acreage: formatAreaAttribute(normalizedAreaNumber),
-        published: currentDate.toLocaleDateString("vi-VN"),
-        hashtag,
-      }, { transaction });
+      await db.Attribute.create(
+        {
+          id: attributesId,
+          price: formatPriceAttribute(normalizedPriceNumber),
+          acreage: formatAreaAttribute(normalizedAreaNumber),
+          published: currentDate.toLocaleDateString("vi-VN"),
+          hashtag,
+        },
+        { transaction },
+      );
 
-      await db.Image.create({
-        id: imagesId,
-        image: JSON.stringify(normalizedImages),
-      }, { transaction });
+      await db.Image.create(
+        {
+          id: imagesId,
+          image: JSON.stringify(normalizedImages),
+        },
+        { transaction },
+      );
 
-      await db.Overview.create({
-        id: overviewId,
-        code: hashtag,
-        area: provinceName,
-        type: category?.value || body.categoryCode || "",
-        target: body.target || "T\u1ea5t c\u1ea3",
-        bonus: "Tin th\u01b0\u1eddng",
-        created: currentDate,
-        expired: expiredDate,
-      }, { transaction });
+      await db.Overview.create(
+        {
+          id: overviewId,
+          code: hashtag,
+          area: provinceName,
+          type: category?.value || body.categoryCode || "",
+          target: body.target || "T\u1ea5t c\u1ea3",
+          bonus: "Tin th\u01b0\u1eddng",
+          created: currentDate,
+          expired: expiredDate,
+        },
+        { transaction },
+      );
 
       await transaction.commit();
 
@@ -418,55 +622,28 @@ export const createNewPostService = (body, userId) =>
     }
   });
 
-export const getPostsByUserService = (userId) =>
+export const getPostsByUserService = (userId, options = {}) =>
   new Promise(async (resolve, reject) => {
     try {
-      const response = await db.Post.findAll({
-        where: { userId },
-        raw: true,
-        nest: true,
-        order: [["createdAt", "DESC"]],
-        include: managementPostIncludes,
-        attributes: [
-          "id",
-          "title",
-          "star",
-          "address",
-          "description",
-          "categoryCode",
-          "priceCode",
-          "areaCode",
-          "provinceCode",
-          "priceNumber",
-          "areaNumber",
-          "status",
-          "moderatedAt",
-          "moderatedBy",
-          "moderationReason",
-          "createdAt",
-          "updatedAt",
-        ],
+      const normalizedOptions = normalizeManagedListOptions(options);
+      const where = buildPostWhereClause({
+        userId,
+        ...(options.status ? { status: options.status } : {}),
       });
-
-      resolve({
-        err: 0,
-        msg: "OK",
-        response: (response || []).map(mapPostResponse),
-      });
-    } catch (error) {
-      reject(error);
-    }
-  });
-
-export const getAllManagedPostsService = (filters = {}) =>
-  new Promise(async (resolve, reject) => {
-    try {
-      const where = buildPostWhereClause(filters);
+      const countsByStatus = await buildCountsByStatus({ userId });
+      const count = await db.Post.count({ where });
+      const page = resolveManagedPage(
+        count,
+        normalizedOptions.page,
+        normalizedOptions.limit,
+      );
       const response = await db.Post.findAll({
         where,
         raw: true,
         nest: true,
         order: [["createdAt", "DESC"]],
+        offset: (page - 1) * normalizedOptions.limit,
+        limit: normalizedOptions.limit,
         include: managementPostIncludes,
         attributes: [
           "id",
@@ -482,6 +659,7 @@ export const getAllManagedPostsService = (filters = {}) =>
           "areaNumber",
           "userId",
           "status",
+          "deletedFromStatus",
           "moderatedAt",
           "moderatedBy",
           "moderationReason",
@@ -493,7 +671,76 @@ export const getAllManagedPostsService = (filters = {}) =>
       resolve({
         err: 0,
         msg: "OK",
-        response: (response || []).map(mapPostResponse),
+        response: buildPaginatedPayload({
+          rows: (response || []).map(mapPostResponse),
+          count,
+          page,
+          limit: normalizedOptions.limit,
+          countsByStatus,
+        }),
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+export const getAllManagedPostsService = (filters = {}, options = {}) =>
+  new Promise(async (resolve, reject) => {
+    try {
+      const normalizedOptions = normalizeManagedListOptions(options);
+      const where = buildPostWhereClause(filters);
+      const count = await db.Post.count({ where });
+      const page = resolveManagedPage(
+        count,
+        normalizedOptions.page,
+        normalizedOptions.limit,
+      );
+      const countsFilter = { ...filters };
+      delete countsFilter.status;
+      const countsByStatus = await buildCountsByStatus(
+        buildPostWhereClause(countsFilter),
+      );
+      const response = await db.Post.findAll({
+        where,
+        raw: true,
+        nest: true,
+        order: [["createdAt", "DESC"]],
+        offset: (page - 1) * normalizedOptions.limit,
+        limit: normalizedOptions.limit,
+        include: managementPostIncludes,
+        attributes: [
+          "id",
+          "title",
+          "star",
+          "address",
+          "description",
+          "categoryCode",
+          "priceCode",
+          "areaCode",
+          "provinceCode",
+          "priceNumber",
+          "areaNumber",
+          "userId",
+          "status",
+          "deletedFromStatus",
+          "moderatedAt",
+          "moderatedBy",
+          "moderationReason",
+          "createdAt",
+          "updatedAt",
+        ],
+      });
+
+      resolve({
+        err: 0,
+        msg: "OK",
+        response: buildPaginatedPayload({
+          rows: (response || []).map(mapPostResponse),
+          count,
+          page,
+          limit: normalizedOptions.limit,
+          countsByStatus,
+        }),
       });
     } catch (error) {
       reject(error);
@@ -557,12 +804,13 @@ export const updatePostService = (postId, body, userId) =>
           price: formatPriceAttribute(normalizedPriceNumber),
           acreage: formatAreaAttribute(normalizedAreaNumber),
           published: attributePublished,
-          hashtag: (
-            await db.Attribute.findOne({
-              where: { id: post.attributesId },
-              transaction,
-            })
-          )?.hashtag || `#${Math.floor(Math.random() * Math.pow(10, 6))}`,
+          hashtag:
+            (
+              await db.Attribute.findOne({
+                where: { id: post.attributesId },
+                transaction,
+              })
+            )?.hashtag || `#${Math.floor(Math.random() * Math.pow(10, 6))}`,
         },
         transaction,
       );
@@ -586,22 +834,22 @@ export const updatePostService = (postId, body, userId) =>
         post.overviewId,
         {
           code:
-            existingOverview?.code
-            || (
+            existingOverview?.code ||
+            (
               await db.Attribute.findOne({
                 where: { id: post.attributesId },
                 transaction,
               })
-            )?.hashtag
-            || `#${Math.floor(Math.random() * Math.pow(10, 6))}`,
+            )?.hashtag ||
+            `#${Math.floor(Math.random() * Math.pow(10, 6))}`,
           area: provinceName,
           type: category?.value || body.categoryCode || "",
           target: body.target || "T\u1ea5t c\u1ea3",
           bonus: existingOverview?.bonus || "Tin th\u01b0\u1eddng",
           created: existingOverview?.created || post.createdAt || new Date(),
           expired:
-            existingOverview?.expired
-            || new Date(
+            existingOverview?.expired ||
+            new Date(
               new Date().getTime() + DEFAULT_EXPIRED_DAYS * 24 * 60 * 60 * 1000,
             ),
         },
@@ -628,6 +876,7 @@ export const updatePostStatusService = (
 ) =>
   new Promise(async (resolve, reject) => {
     try {
+      const nextStatus = parsePostStatus(status);
       const post = await db.Post.findOne({
         where: { id: postId },
       });
@@ -635,15 +884,60 @@ export const updatePostStatusService = (
       if (!post) {
         return resolve({
           err: 1,
+          statusCode: 404,
           msg: "Khong tim thay tin dang.",
           response: null,
         });
       }
 
-      post.status = normalizePostStatus(status);
+      if (!nextStatus) {
+        return resolve({
+          err: 1,
+          statusCode: 400,
+          msg: "Trang thai bai dang khong hop le.",
+          response: null,
+        });
+      }
+
+      const currentStatus = normalizePostStatus(post.status, "");
+      const deletedRestoreStatus = normalizeDeletedFromStatus(
+        post.deletedFromStatus,
+      );
+
+      if (!canTransitionPostStatus(currentStatus, nextStatus)) {
+        return resolve({
+          err: 1,
+          statusCode: 400,
+          msg: "Khong duoc phep chuyen trang thai bai dang theo workflow hien tai.",
+          response: null,
+        });
+      }
+
+      if (
+        currentStatus === POST_STATUS_DELETED &&
+        !canRestoreDeletedPostStatus(deletedRestoreStatus, nextStatus)
+      ) {
+        return resolve({
+          err: 1,
+          statusCode: 400,
+          msg: deletedRestoreStatus
+            ? "Chi duoc hoan tac bai dang da xoa ve dung trang thai truoc khi xoa."
+            : "Khong the hoan tac bai dang da xoa nay vi khong co trang thai truoc khi xoa.",
+          response: null,
+        });
+      }
+
+      post.status = nextStatus;
+      post.deletedFromStatus =
+        nextStatus === POST_STATUS_DELETED ? currentStatus : null;
       post.moderatedBy = moderatorId || null;
       post.moderatedAt = new Date();
-      post.moderationReason = String(moderationReason || "").trim() || null;
+      post.moderationReason = resolveModerationReasonForStatusChange({
+        currentStatus,
+        nextStatus,
+        currentReason: post.moderationReason,
+        nextReason: moderationReason,
+      });
 
       await post.save();
 
@@ -653,6 +947,7 @@ export const updatePostStatusService = (
         response: {
           id: post.id,
           status: post.status,
+          deletedFromStatus: post.deletedFromStatus,
           moderatedBy: post.moderatedBy,
           moderatedAt: post.moderatedAt,
           moderationReason: post.moderationReason,
@@ -720,9 +1015,30 @@ export const forceDeletePostService = (postId) =>
         await transaction.rollback();
         return resolve({
           err: 1,
+          statusCode: 404,
           msg: "Khong tim thay tin dang can xoa.",
         });
       }
+
+      const currentStatus = normalizePostStatus(post.status, "");
+
+      if (currentStatus !== POST_STATUS_DELETED) {
+        await transaction.rollback();
+        return resolve({
+          err: 1,
+          statusCode: 400,
+          msg: "Chi duoc xoa vinh vien bai dang da o trang thai deleted.",
+        });
+      }
+
+      const imageRecord = post.imagesId
+        ? await db.Image.findOne({
+            where: { id: post.imagesId },
+            raw: true,
+            transaction,
+          })
+        : null;
+      const localAssetsToDelete = normalizeStoredImageList(imageRecord);
 
       await db.Post.destroy({
         where: { id: postId },
@@ -736,6 +1052,7 @@ export const forceDeletePostService = (postId) =>
       ]);
 
       await transaction.commit();
+      await removeLocalPostAssets(localAssetsToDelete);
 
       return resolve({
         err: 0,

@@ -1,4 +1,6 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const {
   buildSearchParamsObject,
   buildSearchTitle,
@@ -18,6 +20,11 @@ const {
   canDeletePost,
   canEditManagedPost,
 } = require("../src/ultils/Common/postPermissions");
+
+const systemPostSource = fs.readFileSync(
+  path.resolve(__dirname, "../src/ultils/Common/systemPost.js"),
+  "utf8",
+);
 
 const tests = [
   {
@@ -116,7 +123,7 @@ const tests = [
     },
   },
   {
-    name: "canDeletePost allows admin on any post and user on own post only",
+    name: "canDeletePost only allows admin actions in moderation workflow",
     run() {
       assert.equal(
         canDeletePost({
@@ -132,35 +139,40 @@ const tests = [
           currentUserId: "user-1",
           post: { id: "post-1", userId: "user-1" },
         }),
-        true,
-      );
-      assert.equal(
-        canDeletePost({
-          role: "user",
-          currentUserId: "user-1",
-          post: { id: "post-1", userId: "user-2" },
-        }),
         false,
       );
     },
   },
   {
-    name: "canEditManagedPost only allows the post owner to edit",
+    name: "canEditManagedPost disables editing in the current workflow",
     run() {
       assert.equal(
         canEditManagedPost({
           currentUserId: "user-1",
           post: { id: "post-1", userId: "user-1" },
         }),
-        true,
-      );
-      assert.equal(
-        canEditManagedPost({
-          currentUserId: "user-1",
-          post: { id: "post-1", userId: "user-2" },
-        }),
         false,
       );
+    },
+  },
+  {
+    name: "admin filters no longer expose the draft tab",
+    run() {
+      assert.equal(systemPostSource.includes('value: "draft"'), false);
+    },
+  },
+  {
+    name: "admin workflow exposes reopen and unhide actions",
+    run() {
+      assert.equal(systemPostSource.includes('key: "reopen-rejected"'), true);
+      assert.equal(systemPostSource.includes('key: "unhide"'), true);
+    },
+  },
+  {
+    name: "deleted tab exposes restore and force delete actions",
+    run() {
+      assert.equal(systemPostSource.includes('key: "restore-deleted"'), true);
+      assert.equal(systemPostSource.includes('actionType: "force-delete"'), true);
     },
   },
 ];

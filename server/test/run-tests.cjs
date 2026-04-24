@@ -34,6 +34,13 @@ const authService = require("../src/services/auth");
 const userService = require("../src/services/user");
 const postService = require("../src/services/post");
 const verifyTokenModule = require("../src/middlewares/verifyToken");
+const {
+  POST_STATUS_DELETED,
+  POST_STATUS_HIDDEN,
+  POST_STATUS_PENDING,
+  POST_STATUS_PUBLISHED,
+  POST_STATUS_REJECTED,
+} = require("../src/ultis/accessControl");
 
 const verifyToken = verifyTokenModule.default;
 const { isAdmin } = verifyTokenModule;
@@ -437,15 +444,27 @@ const tests = [
       await withPatched(
         postServiceModule,
         {
-          getAllManagedPostsService: async () => ({
+          getAllManagedPostsService: async (filters, options) => ({
             err: 0,
             msg: "OK",
-            response: [{ id: "post-admin" }],
+            response: {
+              rows: [{ id: "post-admin" }],
+              count: 1,
+              page: 2,
+              limit: 10,
+              totalPages: 3,
+            },
           }),
           getPostsByUserService: async () => ({
             err: 0,
             msg: "OK",
-            response: [{ id: "post-user" }],
+            response: {
+              rows: [{ id: "post-user" }],
+              count: 1,
+              page: 1,
+              limit: 10,
+              totalPages: 1,
+            },
           }),
         },
         async () => {
@@ -453,14 +472,351 @@ const tests = [
           const res = createMockResponse();
 
           await postController.getPostsByCurrentUser(
-            { user: { id: "admin-1", role: "admin" } },
+            {
+              query: { status: POST_STATUS_DELETED, page: "2" },
+              user: { id: "admin-1", role: "admin" },
+            },
             res,
           );
 
           assert.equal(res.statusCode, 200);
-          assert.deepEqual(res.body.response, [{ id: "post-admin" }]);
+          assert.deepEqual(res.body.response.rows, [{ id: "post-admin" }]);
         },
       );
+    },
+  },
+  {
+    name: "admin controller keeps deleted filter and pagination intact",
+    async run() {
+      const adminController = loadFreshModule("../src/controllers/admin");
+      const postServiceModule = require("../src/services/post");
+      let captured = null;
+      const res = createMockResponse();
+
+      await withPatched(
+        postServiceModule,
+        {
+          getAllManagedPostsService: async (filters, options) => {
+            captured = { filters, options };
+            return {
+              err: 0,
+              msg: "OK",
+              response: {
+                rows: [],
+                count: 0,
+                page: 2,
+                limit: 10,
+                totalPages: 0,
+              },
+            };
+          },
+        },
+        async () => {
+          await adminController.getPosts(
+            { query: { status: POST_STATUS_DELETED, page: "2" } },
+            res,
+          );
+        },
+      );
+
+      assert.equal(res.statusCode, 200);
+      assert.deepEqual(captured, {
+        filters: { status: POST_STATUS_DELETED },
+        options: { page: 2, limit: undefined },
+      });
+    },
+  },
+  {
+    name: "createNewPostService stores new posts as pending",
+    async run() {
+      const transaction = createTransaction();
+      const postPayloads = [];
+
+      await withPatched(
+        db.sequelize,
+        { transaction: async () => transaction },
+        async () => {
+          await withPatched(
+            db.Price,
+            {
+              findAll: async () => prices,
+            },
+            async () => {
+              await withPatched(
+                db.Area,
+                {
+                  findAll: async () => areas,
+                },
+                async () => {
+                  await withPatched(
+                    db.Category,
+                    {
+                      findOne: async () => ({ code: "CTPT", value: "Phong tro" }),
+                    },
+                    async () => {
+                      await withPatched(
+                        db.Post,
+                        {
+                          create: async (payload) => {
+                            postPayloads.push(payload);
+                            return payload;
+                          },
+                        },
+                        async () => {
+                          await withPatched(
+                            db.Attribute,
+                            { create: async () => ({}) },
+                            async () => {
+                              await withPatched(
+                                db.Image,
+                                { create: async () => ({}) },
+                                async () => {
+                                  await withPatched(
+                                    db.Overview,
+                                    { create: async () => ({}) },
+                                    async () => {
+                                      const response =
+                                        await postService.createNewPostService(
+                                          {
+                                            categoryCode: "CTPT",
+                                            title: "Phong tro moi cho sinh vien",
+                                            address: "So 1, Quan 1, Ho Chi Minh",
+                                            description: ["Dong 1", "Dong 2", "Dong 3"],
+                                            images: ["img-1"],
+                                            priceNumber: 3.5,
+                                            areaNumber: 25,
+                                            province: "Ho Chi Minh",
+                                          },
+                                          "user-1",
+                                        );
+
+                                      assert.equal(response.err, 0);
+                                    },
+                                  );
+                                },
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          );
+        },
+      );
+
+      assert.equal(transaction.committed, true);
+      assert.equal(postPayloads[0].status, POST_STATUS_PENDING);
+    },
+  },
+  {
+    name: "updatePostStatusService allows pending to published",
+    async run() {
+      let saved = false;
+      const model = {
+        id: "post-1",
+        status: POST_STATUS_PENDING,
+        moderatedBy: null,
+        moderatedAt: null,
+        moderationReason: null,
+        async save() {
+          saved = true;
+        },
+      };
+
+      await withPatched(
+        db.Post,
+        {
+          findOne: async ({ where }) => {
+            assert.deepEqual(where, { id: "post-1" });
+            return model;
+          },
+        },
+        async () => {
+          const response = await postService.updatePostStatusService(
+            "post-1",
+            POST_STATUS_PUBLISHED,
+            "admin-1",
+          );
+
+          assert.equal(response.err, 0);
+          assert.equal(saved, true);
+          assert.equal(model.status, POST_STATUS_PUBLISHED);
+          assert.equal(model.moderatedBy, "admin-1");
+          assert.equal(model.moderationReason, null);
+        },
+      );
+    },
+  },
+  {
+    name: "updatePostStatusService reopens rejected posts back to pending",
+    async run() {
+      let saved = false;
+      const model = {
+        id: "post-rejected",
+        status: POST_STATUS_REJECTED,
+        deletedFromStatus: null,
+        moderatedBy: null,
+        moderatedAt: null,
+        moderationReason: "Missing info",
+        async save() {
+          saved = true;
+        },
+      };
+
+      await withPatched(
+        db.Post,
+        {
+          findOne: async ({ where }) => {
+            assert.deepEqual(where, { id: "post-rejected" });
+            return model;
+          },
+        },
+        async () => {
+          const response = await postService.updatePostStatusService(
+            "post-rejected",
+            POST_STATUS_PENDING,
+            "admin-2",
+          );
+
+          assert.equal(response.err, 0);
+          assert.equal(saved, true);
+          assert.equal(model.status, POST_STATUS_PENDING);
+          assert.equal(model.moderationReason, null);
+        },
+      );
+    },
+  },
+  {
+    name: "updatePostStatusService stores the source tab before soft delete",
+    async run() {
+      let saved = false;
+      const model = {
+        id: "post-2",
+        status: POST_STATUS_REJECTED,
+        deletedFromStatus: null,
+        moderatedBy: null,
+        moderatedAt: null,
+        moderationReason: "Rejected by admin",
+        async save() {
+          saved = true;
+        },
+      };
+
+      await withPatched(
+        db.Post,
+        {
+          findOne: async ({ where }) => {
+            assert.deepEqual(where, { id: "post-2" });
+            return model;
+          },
+        },
+        async () => {
+          const response = await postService.updatePostStatusService(
+            "post-2",
+            POST_STATUS_DELETED,
+            "admin-9",
+          );
+
+          assert.equal(response.err, 0);
+          assert.equal(saved, true);
+          assert.equal(model.status, POST_STATUS_DELETED);
+          assert.equal(model.deletedFromStatus, POST_STATUS_REJECTED);
+          assert.equal(model.moderationReason, "Rejected by admin");
+          assert.equal(response.response.deletedFromStatus, POST_STATUS_REJECTED);
+        },
+      );
+    },
+  },
+  {
+    name: "updatePostStatusService restores deleted posts to the saved tab",
+    async run() {
+      let saved = false;
+      const model = {
+        id: "post-3",
+        status: POST_STATUS_DELETED,
+        deletedFromStatus: POST_STATUS_HIDDEN,
+        moderatedBy: null,
+        moderatedAt: null,
+        moderationReason: "Hidden by admin",
+        async save() {
+          saved = true;
+        },
+      };
+
+      await withPatched(
+        db.Post,
+        {
+          findOne: async ({ where }) => {
+            assert.deepEqual(where, { id: "post-3" });
+            return model;
+          },
+        },
+        async () => {
+          const response = await postService.updatePostStatusService(
+            "post-3",
+            POST_STATUS_HIDDEN,
+            "admin-5",
+          );
+
+          assert.equal(response.err, 0);
+          assert.equal(saved, true);
+          assert.equal(model.status, POST_STATUS_HIDDEN);
+          assert.equal(model.deletedFromStatus, null);
+          assert.equal(model.moderationReason, "Hidden by admin");
+          assert.equal(response.response.deletedFromStatus, null);
+        },
+      );
+    },
+  },
+  {
+    name: "updatePostStatusService rejects invalid transitions",
+    async run() {
+      await withPatched(
+        db.Post,
+        {
+          findOne: async () => ({
+            id: "post-1",
+            status: POST_STATUS_DELETED,
+            async save() {
+              throw new Error("save should not be called");
+            },
+          }),
+        },
+        async () => {
+          const response = await postService.updatePostStatusService(
+            "post-1",
+            POST_STATUS_PUBLISHED,
+            "admin-1",
+          );
+
+          assert.equal(response.err, 1);
+          assert.equal(response.statusCode, 400);
+        },
+      );
+    },
+  },
+  {
+    name: "user workflow endpoints reject update and delete with 403",
+    async run() {
+      const userController = loadFreshModule("../src/controllers/user");
+
+      const updateRes = createMockResponse();
+      await userController.updateMyPost(
+        { params: { id: "post-1" }, user: { id: "user-1" } },
+        updateRes,
+      );
+      assert.equal(updateRes.statusCode, 403);
+
+      const deleteRes = createMockResponse();
+      await userController.deleteMyPost(
+        { params: { id: "post-1" }, user: { id: "user-1" } },
+        deleteRes,
+      );
+      assert.equal(deleteRes.statusCode, 403);
     },
   },
   {
@@ -552,6 +908,7 @@ const tests = [
                 assert.deepEqual(where, { id: "post-1" });
                 return {
                   id: "post-1",
+                  status: POST_STATUS_DELETED,
                   imagesId: "img-1",
                   attributesId: "attr-1",
                   overviewId: "overview-1",
@@ -565,6 +922,10 @@ const tests = [
               await withPatched(
                 db.Image,
                 {
+                  findOne: async ({ where }) => {
+                    assert.deepEqual(where, { id: "img-1" });
+                    return { id: "img-1", image: JSON.stringify(["https://cdn.example.com/img-1.jpg"]) };
+                  },
                   destroy: async ({ where }) => {
                     destroyCalls.push({ model: "Image", where });
                   },
@@ -603,6 +964,38 @@ const tests = [
                   );
                 },
               );
+            },
+          );
+        },
+      );
+    },
+  },
+  {
+    name: "forceDeletePostService refuses hard delete outside deleted tab",
+    async run() {
+      const transaction = createTransaction();
+
+      await withPatched(
+        db.sequelize,
+        {
+          transaction: async () => transaction,
+        },
+        async () => {
+          await withPatched(
+            db.Post,
+            {
+              findOne: async () => ({
+                id: "post-1",
+                status: POST_STATUS_PUBLISHED,
+              }),
+            },
+            async () => {
+              const response = await postService.forceDeletePostService("post-1");
+
+              assert.equal(response.err, 1);
+              assert.equal(response.statusCode, 400);
+              assert.equal(transaction.rolledBack, true);
+              assert.equal(transaction.committed, false);
             },
           );
         },

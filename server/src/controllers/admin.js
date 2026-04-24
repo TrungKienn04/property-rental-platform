@@ -2,18 +2,34 @@ import * as postService from "../services/post";
 import * as userService from "../services/user";
 
 const {
-  normalizePostStatus,
+  parsePostStatus,
   normalizeUserStatus,
   POST_STATUSES,
   USER_STATUSES,
 } = require("../ultis/accessControl");
 
+const normalizePage = (value) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+};
+
 export const getPosts = async (req, res) => {
   try {
     const filters = {};
+    const requestedStatus = String(req.query?.status || "").trim();
 
-    if (req.query?.status) {
-      filters.status = normalizePostStatus(req.query.status);
+    if (requestedStatus) {
+      const normalizedStatus = parsePostStatus(requestedStatus);
+
+      if (!normalizedStatus) {
+        return res.status(400).json({
+          err: 1,
+          msg: "Trang thai bai dang khong hop le.",
+          response: null,
+        });
+      }
+
+      filters.status = normalizedStatus;
     }
 
     if (req.query?.userId) {
@@ -24,7 +40,10 @@ export const getPosts = async (req, res) => {
       filters.provinceCode = String(req.query.provinceCode).trim();
     }
 
-    const response = await postService.getAllManagedPostsService(filters);
+    const response = await postService.getAllManagedPostsService(filters, {
+      page: normalizePage(req.query?.page),
+      limit: req.query?.limit,
+    });
     return res.status(200).json(response);
   } catch (error) {
     return res.status(500).json({
@@ -66,7 +85,9 @@ export const updatePostStatus = async (req, res) => {
       req.user.id,
       req.body?.moderationReason,
     );
-    return res.status(response?.err === 0 ? 200 : 404).json(response);
+    const statusCode =
+      response?.statusCode || (response?.err === 0 ? 200 : 400);
+    return res.status(statusCode).json(response);
   } catch (error) {
     return res.status(500).json({
       err: -1,
@@ -81,7 +102,9 @@ export const forceDeletePost = async (req, res) => {
 
   try {
     const response = await postService.forceDeletePostService(id);
-    return res.status(response?.err === 0 ? 200 : 404).json(response);
+    const statusCode =
+      response?.statusCode || (response?.err === 0 ? 200 : 400);
+    return res.status(statusCode).json(response);
   } catch (error) {
     return res.status(500).json({
       err: -1,

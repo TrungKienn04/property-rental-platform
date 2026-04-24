@@ -212,10 +212,24 @@ connectDatabase().then(async () => {
         console.log("Added Posts.moderationReason column");
       }
 
+      if (!postDesc.deletedFromStatus) {
+        await queryInterface.addColumn("Posts", "deletedFromStatus", {
+          type: db.Sequelize.STRING,
+          allowNull: true,
+        });
+        console.log("Added Posts.deletedFromStatus column");
+      }
+
       await db.sequelize.query(`
         UPDATE Posts
         SET status = 'published'
         WHERE status IS NULL OR status = ''
+      `);
+
+      await db.sequelize.query(`
+        UPDATE Posts
+        SET status = 'pending'
+        WHERE LOWER(status) = 'draft'
       `);
 
       const postIndexes = await queryInterface.showIndex("Posts");
