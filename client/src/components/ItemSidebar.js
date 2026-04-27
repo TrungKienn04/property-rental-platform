@@ -6,6 +6,7 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
+import { scrollToPostList } from "../ultils/Common/scrollHelpers";
 
 const {
   buildSearchParamsObject,
@@ -49,23 +50,19 @@ const ItemSidebar = ({ title, content, isDouble, type }) => {
     navigate({
       pathname: location.pathname,
       search: createSearchParams(nextQuery).toString(),
+      hash: "#post-list",
     });
 
-    try {
-      const el = document.getElementById("post-list");
-      if (el) {
-        // small timeout to allow navigation/render
-        setTimeout(
-          () => el.scrollIntoView({ behavior: "smooth", block: "start" }),
-          50,
-        );
-        return;
+    // small timeout to allow navigation/render
+    setTimeout(() => {
+      if (!scrollToPostList({ behavior: "smooth" })) {
+        try {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } catch (e) {
+          // ignore
+        }
       }
-    } catch (e) {
-      // ignore
-    }
-
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 80);
   };
 
   const isActiveCode = (code) => currentQuery[type || "categoryCode"] === code;

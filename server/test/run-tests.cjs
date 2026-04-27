@@ -33,6 +33,7 @@ const db = require("../src/models");
 const authService = require("../src/services/auth");
 const userService = require("../src/services/user");
 const postService = require("../src/services/post");
+const savedPostService = require("../src/services/savedPost");
 const verifyTokenModule = require("../src/middlewares/verifyToken");
 const {
   POST_STATUS_DELETED,
@@ -527,6 +528,51 @@ const tests = [
     },
   },
   {
+    name: "user controller keeps current page and defers to fixed managed page size",
+    async run() {
+      const userController = loadFreshModule("../src/controllers/user");
+      const postServiceModule = require("../src/services/post");
+      let captured = null;
+      const res = createMockResponse();
+
+      await withPatched(
+        postServiceModule,
+        {
+          getPostsByUserService: async (userId, options) => {
+            captured = { userId, options };
+            return {
+              err: 0,
+              msg: "OK",
+              response: {
+                rows: [{ id: "post-user-page-3" }],
+                count: 21,
+                page: 3,
+                limit: 10,
+                totalPages: 3,
+              },
+            };
+          },
+        },
+        async () => {
+          await userController.getMyPosts(
+            {
+              query: { page: "3" },
+              user: { id: "user-1", role: "user" },
+            },
+            res,
+          );
+        },
+      );
+
+      assert.equal(res.statusCode, 200);
+      assert.deepEqual(res.body.response.rows, [{ id: "post-user-page-3" }]);
+      assert.deepEqual(captured, {
+        userId: "user-1",
+        options: { status: undefined, page: 3, limit: undefined },
+      });
+    },
+  },
+  {
     name: "createNewPostService stores new posts as pending",
     async run() {
       const transaction = createTransaction();
@@ -800,23 +846,74 @@ const tests = [
     },
   },
   {
-    name: "user workflow endpoints reject update and delete with 403",
+    name: "user workflow endpoints allow updating and deleting own posts",
     async run() {
       const userController = loadFreshModule("../src/controllers/user");
+      const postServiceModule = require("../src/services/post");
+      let updatedPayload = null;
+      let deletedPostId = null;
 
-      const updateRes = createMockResponse();
-      await userController.updateMyPost(
-        { params: { id: "post-1" }, user: { id: "user-1" } },
-        updateRes,
-      );
-      assert.equal(updateRes.statusCode, 403);
+      await withPatched(
+        postServiceModule,
+        {
+          updatePostService: async (postId, payload, userId) => {
+            updatedPayload = { postId, payload, userId };
+            return { err: 0, msg: "OK" };
+          },
+          deletePostService: async (postId, userId) => {
+            deletedPostId = { postId, userId };
+            return { err: 0, msg: "OK" };
+          },
+        },
+        async () => {
+          const updateRes = createMockResponse();
+          await userController.updateMyPost(
+            {
+              params: { id: "post-1" },
+              user: { id: "user-1" },
+              body: {
+                categoryCode: "CTPT",
+                title: "Phong tro da du thong tin",
+                address: "So 1, Quan 1, Ho Chi Minh",
+                description: ["Dong 1", "Dong 2", "Dong 3"],
+                images: ["img-1"],
+                priceNumber: 3.5,
+                areaNumber: 25,
+                province: "Ho Chi Minh",
+              },
+            },
+            updateRes,
+          );
+          assert.equal(updateRes.statusCode, 200);
+          assert.deepEqual(updatedPayload, {
+            postId: "post-1",
+            payload: {
+              categoryCode: "CTPT",
+              title: "Phong tro da du thong tin",
+              priceNumber: 3.5,
+              areaNumber: 25,
+              images: ["img-1"],
+              address: "So 1, Quan 1, Ho Chi Minh",
+              description: ["Dong 1", "Dong 2", "Dong 3"],
+              target: "Tat ca",
+              provinceCode: "",
+              province: "Ho Chi Minh",
+            },
+            userId: "user-1",
+          });
 
-      const deleteRes = createMockResponse();
-      await userController.deleteMyPost(
-        { params: { id: "post-1" }, user: { id: "user-1" } },
-        deleteRes,
+          const deleteRes = createMockResponse();
+          await userController.deleteMyPost(
+            { params: { id: "post-1" }, user: { id: "user-1" } },
+            deleteRes,
+          );
+          assert.equal(deleteRes.statusCode, 200);
+          assert.deepEqual(deletedPostId, {
+            postId: "post-1",
+            userId: "user-1",
+          });
+        },
       );
-      assert.equal(deleteRes.statusCode, 403);
     },
   },
   {
@@ -851,6 +948,124 @@ const tests = [
 
           assert.equal(firstPost.userId, "user-9");
           assert.equal(firstPost.user.email, "owner@example.com");
+        },
+      );
+    },
+  },
+  {
+    name: "getPostsByUserService enforces 10 posts per page and orders newest first",
+    async run() {
+      let capturedCountWhere = null;
+      let capturedRowsQuery = null;
+
+      await withPatched(
+        db.Post,
+        {
+          count: async ({ where }) => {
+            capturedCountWhere = where;
+            return 23;
+          },
+          findAll: async (query) => {
+            capturedRowsQuery = query;
+            return [];
+          },
+        },
+        async () => {
+          const response = await postService.getPostsByUserService("user-9", {
+            page: 2,
+            limit: 999,
+          });
+
+          assert.equal(response.err, 0);
+          assert.equal(response.response.page, 2);
+          assert.equal(response.response.limit, 10);
+          assert.equal(response.response.totalPages, 3);
+        },
+      );
+
+      assert.deepEqual(capturedCountWhere, { userId: "user-9" });
+      assert.equal(capturedRowsQuery.limit, 10);
+      assert.equal(capturedRowsQuery.offset, 10);
+      assert.deepEqual(capturedRowsQuery.order, [["createdAt", "DESC"]]);
+      assert.deepEqual(capturedRowsQuery.where, { userId: "user-9" });
+    },
+  },
+  {
+    name: "toggleSavedPostService creates and removes saved posts",
+    async run() {
+      const transaction = createTransaction();
+      let created = null;
+      let destroyed = false;
+      let existing = null;
+
+      await withPatched(
+        db.sequelize,
+        { transaction: async () => transaction },
+        async () => {
+          await withPatched(
+            db.Post,
+            {
+              findOne: async ({ where }) => {
+                assert.equal(where.id, "post-1");
+                assert.equal(where.status, POST_STATUS_PUBLISHED);
+                return { id: "post-1" };
+              },
+            },
+            async () => {
+              await withPatched(
+                db.SavedPost,
+                {
+                  findOne: async () => existing,
+                  create: async (payload) => {
+                    created = payload;
+                    existing = {
+                      ...payload,
+                      async destroy() {
+                        destroyed = true;
+                      },
+                    };
+                    return existing;
+                  },
+                },
+                async () => {
+                  const first = await savedPostService.toggleSavedPostService(
+                    "user-1",
+                    "post-1",
+                  );
+                  assert.equal(first.err, 0);
+                  assert.deepEqual(first.response, { saved: true, postId: "post-1" });
+                  assert.deepEqual(created, { userId: "user-1", postId: "post-1" });
+
+                  const second = await savedPostService.toggleSavedPostService(
+                    "user-1",
+                    "post-1",
+                  );
+                  assert.equal(second.err, 0);
+                  assert.deepEqual(second.response, { saved: false, postId: "post-1" });
+                  assert.equal(destroyed, true);
+                },
+              );
+            },
+          );
+        },
+      );
+
+      assert.equal(transaction.committed, true);
+      assert.equal(transaction.rolledBack, false);
+    },
+  },
+  {
+    name: "getSavedPostIdsService returns saved post ids",
+    async run() {
+      await withPatched(
+        db.SavedPost,
+        {
+          findAll: async () => [{ postId: "post-1" }, { postId: "post-2" }],
+        },
+        async () => {
+          const response = await savedPostService.getSavedPostIdsService("user-1");
+          assert.equal(response.err, 0);
+          assert.deepEqual(response.response, ["post-1", "post-2"]);
         },
       );
     },

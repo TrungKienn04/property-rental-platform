@@ -1,12 +1,14 @@
 import React, { useEffect } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { formatVietnameseToString } from "../../ultils/Common/formatVietnameseToString";
 import * as actions from "../../store/actions";
+import { scrollToTop } from "../../ultils/Common/scrollHelpers";
 
 const Navigation = ({ isAdmin }) => {
   const dispatch = useDispatch();
   const { categories } = useSelector((state) => state.app);
+  const location = useLocation();
 
   useEffect(() => {
     dispatch(actions.getCategories());
@@ -25,6 +27,13 @@ const Navigation = ({ isAdmin }) => {
         <NavLink
           to="/"
           end
+          onClick={(event) => {
+            // Same-route click should still bring user to the top of Home.
+            if (location.pathname === "/" && !location.search && !location.hash) {
+              event.preventDefault();
+              scrollToTop("smooth");
+            }
+          }}
           className={({ isActive }) =>
             `rounded-full px-4 py-2 text-sm font-semibold transition ${
               isActive

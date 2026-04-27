@@ -8,6 +8,8 @@ import {
 } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import * as actions from "../../store/actions";
+import { scrollToPostList } from "../../ultils/Common/scrollHelpers";
+import { path } from "../../ultils/constant";
 
 const {
   buildSearchParamsObject,
@@ -18,6 +20,8 @@ const List = ({ categoryCode }) => {
   const dispatch = useDispatch();
   const [searchParams] = useSearchParams();
   const { posts } = useSelector((state) => state.post);
+  const { ids: savedIds } = useSelector((state) => state.savedPosts);
+  const { isLoggedIn } = useSelector((state) => state.auth);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -34,27 +38,11 @@ const List = ({ categoryCode }) => {
     refreshVisiblePosts();
   }, [refreshVisiblePosts]);
 
-  // Scroll helpers: ensure the list section is visible below the sticky header/nav
+  // Ensure list section is visible below sticky header/nav.
   const scrollToList = (smooth = true) => {
     const tryScroll = (attempts = 0) => {
-      const el = document.getElementById("post-list");
-      if (el) {
-        const header = document.querySelector("header");
-        const nav = document.getElementById("main-nav");
-        const headerHeight = header ? header.offsetHeight : 0;
-        const navHeight = nav ? nav.offsetHeight : 0;
-        const top =
-          el.getBoundingClientRect().top +
-          window.scrollY -
-          headerHeight -
-          navHeight -
-          12;
-        window.scrollTo({
-          top: Math.max(0, top),
-          behavior: smooth ? "smooth" : "auto",
-        });
-        return;
-      }
+      const scrolled = scrollToPostList({ behavior: smooth ? "smooth" : "auto" });
+      if (scrolled) return;
 
       if (attempts < 6) {
         setTimeout(() => tryScroll(attempts + 1), 80);
@@ -73,12 +61,14 @@ const List = ({ categoryCode }) => {
 
   // When filters / search params change, scroll to the list for better UX
   useEffect(() => {
+    if (!location.hash || !location.hash.includes("post-list")) return;
+
     // small delay to allow DOM update after posts refresh
     const t = setTimeout(() => {
       scrollToList(true);
     }, 120);
     return () => clearTimeout(t);
-  }, [location.search]);
+  }, [location.hash, location.search]);
 
   const handleDeleteSuccess = useCallback(async () => {
     await Promise.all([
@@ -87,6 +77,22 @@ const List = ({ categoryCode }) => {
       refreshVisiblePosts(),
     ]);
   }, [dispatch, refreshVisiblePosts]);
+
+  const handleToggleSave = async (postId) => {
+    if (!postId) return;
+
+    if (!isLoggedIn) {
+      navigate(`/${path.LOGIN}`, {
+        state: {
+          flag: false,
+          from: `${location.pathname}${location.search}${location.hash || ""}`,
+        },
+      });
+      return;
+    }
+
+    await dispatch(actions.toggleSavedPost(postId));
+  };
 
   const updateSort = (sort) => {
     const currentQuery = buildSearchParamsObject(searchParams);
@@ -98,6 +104,7 @@ const List = ({ categoryCode }) => {
     navigate({
       pathname: location.pathname,
       search: createSearchParams(nextQuery).toString(),
+      hash: "#post-list",
     });
   };
 
@@ -157,6 +164,8 @@ const List = ({ categoryCode }) => {
               userId={item?.userId}
               id={item?.id}
               onDeleteSuccess={handleDeleteSuccess}
+              isSaved={(savedIds || []).includes(item?.id)}
+              onToggleSave={() => handleToggleSave(item?.id)}
             />
           ))
         ) : (

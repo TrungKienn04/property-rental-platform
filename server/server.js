@@ -259,6 +259,68 @@ connectDatabase().then(async () => {
         error && error.message ? error.message : error,
       );
     }
+
+    try {
+      const queryInterface = db.sequelize.getQueryInterface();
+
+      try {
+        await queryInterface.describeTable("SavedPosts");
+      } catch (error) {
+        await queryInterface.createTable("SavedPosts", {
+          id: {
+            type: db.Sequelize.INTEGER,
+            allowNull: false,
+            autoIncrement: true,
+            primaryKey: true,
+          },
+          userId: {
+            type: db.Sequelize.STRING,
+            allowNull: false,
+          },
+          postId: {
+            type: db.Sequelize.STRING,
+            allowNull: false,
+          },
+          createdAt: {
+            type: db.Sequelize.DATE,
+            allowNull: false,
+          },
+          updatedAt: {
+            type: db.Sequelize.DATE,
+            allowNull: false,
+          },
+        });
+        console.log("Created SavedPosts table");
+      }
+
+      const savedPostIndexes = await queryInterface.showIndex("SavedPosts");
+      const hasUniqueIndex = savedPostIndexes.some(
+        (index) => index.name === "saved_posts_user_post_unique",
+      );
+      const hasUserCreatedAtIndex = savedPostIndexes.some(
+        (index) => index.name === "saved_posts_user_created_at_idx",
+      );
+
+      if (!hasUniqueIndex) {
+        await queryInterface.addIndex("SavedPosts", ["userId", "postId"], {
+          unique: true,
+          name: "saved_posts_user_post_unique",
+        });
+        console.log("Added SavedPosts unique user/post index");
+      }
+
+      if (!hasUserCreatedAtIndex) {
+        await queryInterface.addIndex("SavedPosts", ["userId", "createdAt"], {
+          name: "saved_posts_user_created_at_idx",
+        });
+        console.log("Added SavedPosts user/createdAt index");
+      }
+    } catch (error) {
+      console.error(
+        "Ensure SavedPosts table failed (safe to ignore if DB missing):",
+        error && error.message ? error.message : error,
+      );
+    }
   } catch (error) {
     console.error("Seeding prices/areas failed:", error);
   }

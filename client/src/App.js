@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -7,6 +7,7 @@ import {
   Homepage,
   Login,
   Rental,
+  SavedPosts,
   SearchDetail,
   StaticPage,
 } from "./containers/Public";
@@ -20,6 +21,7 @@ import {
 import { path } from "./ultils/constant";
 import * as actions from "./store/actions";
 import { FloatingChat, Loading, RoleRouteGuard } from "./components";
+import { scrollToTop } from "./ultils/Common/scrollHelpers";
 
 const hasStoredToken = () =>
   Boolean(
@@ -65,6 +67,13 @@ function App() {
   ]);
 
   useEffect(() => {
+    if (!isLoggedIn) return;
+    if (!currentData?.id || !isCurrentResolved) return;
+
+    dispatch(actions.getSavedPostIds());
+  }, [currentData?.id, dispatch, isCurrentResolved, isLoggedIn]);
+
+  useEffect(() => {
     dispatch(actions.getCategories());
     dispatch(actions.getPrices());
     dispatch(actions.getAreas());
@@ -72,15 +81,33 @@ function App() {
   }, [dispatch]);
 
   useEffect(() => {
-    let t;
-    if (location.pathname === "/" && (!location.hash || location.hash === "")) {
-      t = setTimeout(() => {
-        try {
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        } catch (e) {}
-      }, 80);
+    // Prevent browser from restoring scroll position on reload/back-forward.
+    // We manage scroll explicitly via the effects below.
+    const hasRestoration = "scrollRestoration" in window.history;
+    const previous = hasRestoration ? window.history.scrollRestoration : null;
+
+    if (hasRestoration) {
+      window.history.scrollRestoration = "manual";
     }
-    return () => clearTimeout(t);
+
+    return () => {
+      if (hasRestoration && previous) {
+        window.history.scrollRestoration = previous;
+      }
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    // If there is a hash (ex: #post-list), the target view handles its own scroll.
+    if (location.hash && location.hash.length) return;
+    scrollToTop("auto");
+  }, [location.hash, location.pathname, location.search]);
+
+  useEffect(() => {
+    // Keep the viewport at the top when navigating to the Home route without a hash.
+    if (location.pathname !== "/") return;
+    if (location.hash && location.hash.length) return;
+    scrollToTop("auto");
   }, [location.pathname, location.hash]);
 
   const renderSystemIndex = () => {
@@ -100,6 +127,7 @@ function App() {
       <Routes>
         <Route path={path.HOME} element={<Home />}>
           <Route path="*" element={<Homepage />} />
+          <Route path="tin-da-luu" element={<SavedPosts />} />
           <Route path={path.LOGIN} element={<Login />} />
           <Route path={path.CHO_THUE_CAN_HO} element={<Rental />} />
           <Route path={path.CHO_THUE_MAT_BANG} element={<Rental />} />

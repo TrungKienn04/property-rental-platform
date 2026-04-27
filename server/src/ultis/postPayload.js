@@ -12,25 +12,25 @@ const normalizePostPayload = (payload = {}) => ({
 });
 
 const validatePostPayload = (payload = {}) => {
-  if (!payload.categoryCode) return "Vui long chon danh muc.";
+  if (!payload.categoryCode) return "Vui lòng chọn danh mục.";
 
   if (!payload.title || payload.title.length < 10) {
-    return "Tieu de can toi thieu 10 ky tu.";
+    return "Tiêu đề cần tối thiểu 10 ký tự.";
   }
 
   if (!payload.address || payload.address.length < 8) {
-    return "Vui long nhap dia chi cho thue day du.";
+    return "Vui lòng nhập địa chỉ cho thuê đầy đủ.";
   }
 
-  if (!payload.province) return "Vui long chon tinh/thanh pho.";
-  if (!payload.images?.length) return "Vui long tai len it nhat 1 anh.";
+  if (!payload.province) return "Vui lòng chọn tỉnh/thành phố.";
+  if (!payload.images?.length) return "Vui lòng tải lên ít nhất 1 ảnh.";
 
   if (
     !payload.priceNumber
     || Number.isNaN(payload.priceNumber)
     || payload.priceNumber <= 0
   ) {
-    return "Gia cho thue phai lon hon 0.";
+    return "Giá cho thuê phải lớn hơn 0.";
   }
 
   if (
@@ -38,7 +38,7 @@ const validatePostPayload = (payload = {}) => {
     || Number.isNaN(payload.areaNumber)
     || payload.areaNumber <= 0
   ) {
-    return "Dien tich phai lon hon 0.";
+    return "Diện tích phải lớn hơn 0.";
   }
 
   const descriptionText = Array.isArray(payload.description)
@@ -46,7 +46,7 @@ const validatePostPayload = (payload = {}) => {
     : String(payload.description || "").trim();
 
   if (descriptionText.length < 20) {
-    return "Noi dung mo ta can toi thieu 20 ky tu.";
+    return "Nội dung mô tả cần tối thiểu 20 ký tự.";
   }
 
   return null;

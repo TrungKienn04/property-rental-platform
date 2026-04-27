@@ -15,6 +15,13 @@ router.put("/profile", userController.updateCurrent);
 router.put("/me", userController.updateCurrent);
 
 router.get("/posts", requireActiveUser, userController.getMyPosts);
+router.get("/saved-posts/ids", requireActiveUser, userController.getSavedPostIds);
+router.get("/saved-posts", requireActiveUser, userController.getSavedPosts);
+router.post(
+  "/saved-posts/:postId",
+  requireActiveUser,
+  userController.toggleSavedPost,
+);
 router.post("/posts", requireActiveUser, userController.createMyPost);
 router.post(
   "/posts/upload-image",

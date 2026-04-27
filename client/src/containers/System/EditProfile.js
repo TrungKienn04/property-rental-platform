@@ -11,6 +11,8 @@ const AUTH_STORAGE_MODE_KEY = "APP_TOKEN_STORAGE";
 const sectionClass = "surface-card rounded-[24px] px-5 py-5 lg:px-6";
 const inputClass =
   "w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900";
+const primaryButtonClass =
+  "inline-flex min-h-[48px] items-center justify-center whitespace-nowrap rounded-xl bg-slate-700 px-6 text-sm font-semibold leading-none text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60";
 
 const persistRefreshedToken = (token) => {
   if (!token) return;
@@ -57,11 +59,14 @@ const validateProfileForm = (values) => {
     errors.phone = "Số điện thoại không hợp lệ.";
   }
 
-  if (values.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(values.email).trim())) {
+  if (
+    values.email &&
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(values.email).trim())
+  ) {
     errors.email = "Email không hợp lệ.";
   }
 
-  if (values.newPassword) {
+  if (values.newPassword || values.currentPassword || values.confirmPassword) {
     if (String(values.newPassword).length < 6) {
       errors.newPassword = "Mật khẩu mới cần tối thiểu 6 ký tự.";
     }
@@ -150,7 +155,8 @@ const EditProfile = () => {
       await Swal.fire({
         icon: "error",
         title: "Không thể cập nhật",
-        text: error?.response?.data?.msg || "Có lỗi xảy ra khi cập nhật tài khoản.",
+        text:
+          error?.response?.data?.msg || "Có lỗi xảy ra khi cập nhật tài khoản.",
       });
     } finally {
       setIsSubmitting(false);
@@ -235,6 +241,17 @@ const EditProfile = () => {
               <FieldError text={errors.email} />
             </div>
           </div>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className={primaryButtonClass}
+            >
+              {isSubmitting ? "Đang cập nhật..." : "Lưu thông tin"}
+            </button>
+          </div>
         </div>
       </section>
 
@@ -299,9 +316,9 @@ const EditProfile = () => {
               type="button"
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="inline-flex min-h-[48px] items-center justify-center whitespace-nowrap rounded-xl bg-slate-950 px-6 text-sm font-semibold leading-none text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className={primaryButtonClass}
             >
-              {isSubmitting ? "Đang cập nhật..." : "Lưu thông tin"}
+              {isSubmitting ? "Đang cập nhật..." : "Lưu mật khẩu"}
             </button>
           </div>
         </div>

@@ -165,8 +165,8 @@ const Login = () => {
 
   return (
     <section className="flex w-full items-center justify-center">
-      <div className="w-full max-w-[640px]">
-        <div className="relative overflow-hidden rounded-[32px] border border-white/70 bg-white/92 p-6 shadow-[0_30px_90px_rgba(15,23,42,0.16)] backdrop-blur-xl sm:p-8 lg:p-9">
+      <div className="w-full max-w-[520px]">
+        <div className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.18)] sm:p-6">
           <button
             type="button"
             onClick={() => navigate(closePath, { replace: true })}
@@ -181,10 +181,10 @@ const Login = () => {
               Tài khoản Phongtro123
             </span>
             <div className="mt-4 space-y-3">
-              <h1 className="text-[32px] font-extrabold leading-tight text-slate-950 sm:text-[38px]">
+              <h1 className="text-[26px] font-extrabold leading-tight text-slate-950 sm:text-[30px]">
                 {isRegister ? "Tạo tài khoản mới" : "Đăng nhập tài khoản"}
               </h1>
-              <p className="max-w-[480px] text-[15px] leading-7 text-slate-500">
+              <p className="max-w-[460px] text-sm leading-6 text-slate-500">
                 {isRegister
                   ? "Điền thông tin cơ bản để bắt đầu đăng tin và quản lý tài khoản trên giao diện gọn gàng, dễ sử dụng."
                   : "Đăng nhập bằng email hoặc số điện thoại để tiếp tục quản lý bài đăng, thông tin cá nhân và các thao tác trong hệ thống."}
@@ -198,7 +198,7 @@ const Login = () => {
             </div>
           )}
 
-          <form className="mt-8 space-y-5" onSubmit={handleSubmitForm}>
+          <form className="mt-6 space-y-4" onSubmit={handleSubmitForm}>
             {isRegister ? (
               <div className="grid gap-4 sm:grid-cols-2">
                 <InputForm
@@ -265,7 +265,7 @@ const Login = () => {
               description="Mật khẩu cần tối thiểu 6 ký tự."
             />
 
-            <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <label className="flex cursor-pointer items-center gap-3 text-sm font-medium text-slate-700">
                 <input
                   type="checkbox"
@@ -289,7 +289,7 @@ const Login = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`inline-flex min-h-[54px] w-full items-center justify-center rounded-2xl px-5 text-base font-semibold text-slate-950 transition ${
+              className={`inline-flex min-h-[48px] w-full items-center justify-center rounded-2xl px-5 text-sm font-semibold text-slate-950 transition ${
                 isSubmitting
                   ? "cursor-not-allowed bg-amber-200"
                   : "bg-amber-400 hover:bg-amber-300"
@@ -303,7 +303,7 @@ const Login = () => {
             </button>
           </form>
 
-          <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-5">
+          <div className="mt-5 flex flex-col gap-3 border-t border-slate-200 pt-4">
             <button
               type="button"
               onClick={() => switchMode(!isRegister)}

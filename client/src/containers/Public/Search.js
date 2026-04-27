@@ -116,6 +116,7 @@ const Search = () => {
       {
         pathname: `/${path.SEARCH}`,
         search: createSearchParams(mergeQueryValues(queryCodes, { page: 1 })).toString(),
+        hash: "#post-list",
       },
       { state: { titleSearch: buildSearchTitle(queries) } },
     );

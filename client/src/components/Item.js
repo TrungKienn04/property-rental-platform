@@ -21,6 +21,8 @@ const Item = ({
   attributes,
   address,
   id,
+  isSaved = false,
+  onToggleSave,
 }) => {
   const [isHoverHeart, setIsHoverHeart] = useState(false);
   const [hiddenImages, setHiddenImages] = useState([]);
@@ -37,6 +39,7 @@ const Item = ({
   const previewImage = visibleImages.length ? visibleImages[0] : null;
   const detailPath = `/chi-tiet/${formatVietnameseToString(title)}/${id}`;
   const imageCount = visibleImages.length || safeImages.length;
+  const isHeartFilled = Boolean(isSaved || isHoverHeart);
 
   const handleHideImage = (image) => {
     if (!image) return;
@@ -74,17 +77,24 @@ const Item = ({
             <span className="rounded-full bg-slate-950/72 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
               {imageCount ? `${imageCount} ảnh` : "Tin mới"}
             </span>
-            <span
-              className="rounded-full bg-white/90 p-2 text-slate-700 shadow-sm backdrop-blur"
+            <button
+              type="button"
+              aria-label={isSaved ? "Bá» lÆ°u tin" : "LÆ°u tin"}
+              className="rounded-full bg-white/90 p-2 text-slate-700 shadow-sm backdrop-blur transition hover:bg-white"
               onMouseEnter={() => setIsHoverHeart(true)}
               onMouseLeave={() => setIsHoverHeart(false)}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onToggleSave?.();
+              }}
             >
-              {isHoverHeart ? (
+              {isHeartFilled ? (
                 <RiHeartFill size={20} color="#ef4444" />
               ) : (
                 <RiHeartLine size={20} />
               )}
-            </span>
+            </button>
           </div>
 
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/70 via-slate-900/20 to-transparent" />

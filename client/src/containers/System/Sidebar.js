@@ -7,6 +7,7 @@ import * as actions from "../../store/actions";
 import getMenuSidebar from "../../ultils/menuSidebar";
 import icons from "../../ultils/icons";
 import { path } from "../../ultils/constant";
+import { scrollToTop } from "../../ultils/Common/scrollHelpers";
 
 const { isAdminRole } = require("../../ultils/Common/authHelpers");
 
@@ -142,7 +143,8 @@ const Sidebar = () => {
         <button
           type="button"
           onClick={() => {
-            navigate("/", { replace: false, state: { scrollToTop: true } });
+            navigate("/", { replace: false });
+            setTimeout(() => scrollToTop("smooth"), 0);
           }}
           className={`${inactiveStyle} w-full justify-start text-left text-slate-600 hover:text-slate-950`}
         >

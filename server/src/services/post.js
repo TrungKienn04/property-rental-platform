@@ -761,7 +761,7 @@ export const updatePostService = (postId, body, userId) =>
         await transaction.rollback();
         return resolve({
           err: 1,
-          msg: "Kh\u00f4ng t\u00ecm th\u1ea5y tin \u0111\u0103ng c\u1ea7n c\u1eadp nh\u1eadt.",
+          msg: "Không tìm thấy tin đăng cần cập nhật.",
         });
       }
 
@@ -885,7 +885,7 @@ export const updatePostStatusService = (
         return resolve({
           err: 1,
           statusCode: 404,
-          msg: "Khong tim thay tin dang.",
+          msg: "Không tìm thấy tin đăng.",
           response: null,
         });
       }
@@ -894,7 +894,7 @@ export const updatePostStatusService = (
         return resolve({
           err: 1,
           statusCode: 400,
-          msg: "Trang thai bai dang khong hop le.",
+          msg: "Trạng thái bài đăng không hợp lệ.",
           response: null,
         });
       }
@@ -908,7 +908,7 @@ export const updatePostStatusService = (
         return resolve({
           err: 1,
           statusCode: 400,
-          msg: "Khong duoc phep chuyen trang thai bai dang theo workflow hien tai.",
+          msg: "Không được phép chuyển trạng thái bài đăng theo workflow hiện tại.",
           response: null,
         });
       }
@@ -921,8 +921,8 @@ export const updatePostStatusService = (
           err: 1,
           statusCode: 400,
           msg: deletedRestoreStatus
-            ? "Chi duoc hoan tac bai dang da xoa ve dung trang thai truoc khi xoa."
-            : "Khong the hoan tac bai dang da xoa nay vi khong co trang thai truoc khi xoa.",
+            ? "Chỉ được hoàn tác bài đăng đã xóa về đúng trạng thái trước khi xóa."
+            : "Không thể hoàn tác bài đăng đã xóa này vì không có trạng thái trước khi xóa.",
           response: null,
         });
       }
@@ -973,7 +973,7 @@ export const deletePostService = (postId, userId) =>
         await transaction.rollback();
         return resolve({
           err: 1,
-          msg: "Kh\u00f4ng t\u00ecm th\u1ea5y tin \u0111\u0103ng c\u1ea7n x\u00f3a.",
+          msg: "Không tìm thấy tin đăng cần xóa.",
         });
       }
 
@@ -1016,7 +1016,7 @@ export const forceDeletePostService = (postId) =>
         return resolve({
           err: 1,
           statusCode: 404,
-          msg: "Khong tim thay tin dang can xoa.",
+          msg: "Không tìm thấy tin đăng cần xóa.",
         });
       }
 
@@ -1027,7 +1027,7 @@ export const forceDeletePostService = (postId) =>
         return resolve({
           err: 1,
           statusCode: 400,
-          msg: "Chi duoc xoa vinh vien bai dang da o trang thai deleted.",
+          msg: "Chỉ được xóa vĩnh viễn bài đăng đã ở trạng thái deleted.",
         });
       }
 

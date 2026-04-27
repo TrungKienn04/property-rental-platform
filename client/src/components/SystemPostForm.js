@@ -38,7 +38,7 @@ const labelClass = "mb-2 block text-sm font-semibold text-slate-800";
 const secondaryButtonClass =
   "inline-flex min-h-[46px] w-full items-center justify-center whitespace-nowrap rounded-md border border-slate-200 px-5 text-sm font-semibold leading-none text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 sm:w-auto";
 const primaryButtonClass =
-  "inline-flex min-h-[46px] w-full items-center justify-center whitespace-nowrap rounded-md bg-slate-800 px-6 text-sm font-semibold leading-none text-white shadow-[0_10px_24px_rgba(15,23,42,0.14)] transition duration-200 hover:bg-slate-700  hover:shadow-[0_14px_28px_rgba(15,23,42,0.16)] disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-[240px]";
+  "inline-flex min-h-[46px] w-full items-center justify-center whitespace-nowrap rounded-md bg-slate-700 px-6 text-sm font-semibold leading-none text-white shadow-[0_10px_24px_rgba(15,23,42,0.14)] transition duration-200 hover:bg-slate-800 hover:shadow-[0_14px_28px_rgba(15,23,42,0.16)] disabled:cursor-not-allowed disabled:opacity-60 sm:min-w-[240px]";
 
 const FieldHint = ({ error }) => {
   if (!error) return null;
@@ -787,7 +787,7 @@ const SystemPostForm = ({
 
       <section className={sectionClass}>
         <SectionHeader
-          eyebrow="Contact"
+          eyebrow="Liên hệ"
           title="Thông tin liên hệ"
           action={
             <Link

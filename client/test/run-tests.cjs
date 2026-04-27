@@ -123,7 +123,7 @@ const tests = [
     },
   },
   {
-    name: "canDeletePost only allows admin actions in moderation workflow",
+    name: "canDeletePost allows admin or active owner to delete",
     run() {
       assert.equal(
         canDeletePost({
@@ -138,18 +138,39 @@ const tests = [
           role: "user",
           currentUserId: "user-1",
           post: { id: "post-1", userId: "user-1" },
+          currentUserStatus: "active",
+        }),
+        true,
+      );
+      assert.equal(
+        canDeletePost({
+          role: "user",
+          currentUserId: "user-1",
+          post: { id: "post-1", userId: "user-2" },
+          currentUserStatus: "active",
         }),
         false,
       );
     },
   },
   {
-    name: "canEditManagedPost disables editing in the current workflow",
+    name: "canEditManagedPost only allows active owner to edit",
     run() {
       assert.equal(
         canEditManagedPost({
+          role: "user",
           currentUserId: "user-1",
           post: { id: "post-1", userId: "user-1" },
+          currentUserStatus: "active",
+        }),
+        true,
+      );
+      assert.equal(
+        canEditManagedPost({
+          role: "user",
+          currentUserId: "user-1",
+          post: { id: "post-1", userId: "user-2" },
+          currentUserStatus: "active",
         }),
         false,
       );

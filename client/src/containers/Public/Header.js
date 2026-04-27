@@ -7,6 +7,7 @@ import icons from "../../ultils/icons";
 import { path } from "../../ultils/constant";
 import * as actions from "../../store/actions";
 import getMenuManage from "../../ultils/menuManage";
+import { scrollToTop } from "../../ultils/Common/scrollHelpers";
 
 const { isAdminRole } = require("../../ultils/Common/authHelpers");
 
@@ -16,7 +17,6 @@ const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
-  const headerRef = useRef();
   const menuRef = useRef();
   const { isLoggedIn, role: storedRole } = useSelector((state) => state.auth);
   const { currentData, isLoadingCurrent, isCurrentResolved } = useSelector(
@@ -52,11 +52,6 @@ const Header = () => {
       navigate,
     ],
   );
-
-  useEffect(() => {
-    if (location.hash && location.hash.length) return;
-    headerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [location.hash, location.pathname, location.search]);
 
   useEffect(() => {
     setIsShowMenu(false);
@@ -96,10 +91,7 @@ const Header = () => {
   };
 
   return (
-    <header
-      ref={headerRef}
-      className="sticky top-0 z-40 border-b border-white/60 bg-white/88 shadow-[0_18px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl"
-    >
+    <header className="sticky top-0 z-40 border-b border-white/60 bg-white/88 shadow-[0_18px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl">
       <div
         className={`mx-auto flex w-full max-w-[1180px] px-4 lg:px-6 ${
           isAuthRoute
@@ -107,7 +99,17 @@ const Header = () => {
             : "flex-col gap-4 py-3 lg:flex-row lg:items-center lg:justify-between"
         }`}
       >
-        <Link to="/" className="flex items-center gap-3">
+        <Link
+          to="/"
+          className="flex items-center gap-3"
+          onClick={(event) => {
+            // Same-route click should still scroll to the very top.
+            if (location.pathname === "/" && !location.search && !location.hash) {
+              event.preventDefault();
+              scrollToTop("smooth");
+            }
+          }}
+        >
           <img
             src={logo}
             alt="Phongtro123"
@@ -235,6 +237,19 @@ const Header = () => {
                 </div>
               )}
             </div>
+          )}
+
+          {isLoggedIn && !isAuthRoute && (
+            <Button
+              text="Tin đã lưu"
+              textColor="text-slate-700"
+              bgColor="bg-slate-100"
+              className="min-h-[42px] text-sm shadow-none hover:shadow-sm"
+              onClick={() => {
+                navigate("/tin-da-luu");
+                setTimeout(() => scrollToTop("auto"), 0);
+              }}
+            />
           )}
 
           {!isAuthRoute && !isAdmin && (

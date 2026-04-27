@@ -8,6 +8,7 @@ import {
 import { useSelector } from "react-redux";
 import icons from "../../ultils/icons";
 import { PageNumber } from "../../components";
+import { scrollToPostList, scrollToTop } from "../../ultils/Common/scrollHelpers";
 
 const { GrLinkNext, GrLinkPrevious } = icons;
 const {
@@ -63,18 +64,15 @@ const Pagination = () => {
     navigate({
       pathname: location.pathname,
       search: createSearchParams(nextQuery).toString(),
+      hash: "#post-list",
     });
-    // scroll to posts list for better UX
-    try {
-      const el = document.getElementById("post-list");
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-        return;
+
+    // Scroll to posts list for better UX (account for sticky header/nav).
+    setTimeout(() => {
+      if (!scrollToPostList({ behavior: "smooth" })) {
+        scrollToTop("smooth");
       }
-    } catch (e) {
-      // ignore
-    }
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 80);
   };
 
   if (totalPages <= 1) return null;

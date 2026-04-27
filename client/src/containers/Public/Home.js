@@ -12,12 +12,12 @@ const Home = () => {
 
   if (isAuthRoute) {
     return (
-      <div className="min-h-screen bg-[#f9f4ee]">
+      <div className="min-h-screen bg-black">
         <Header />
         <main
-          className="flex min-h-[calc(100vh-81px)] w-full items-center justify-center bg-cover bg-center bg-no-repeat px-4 py-6 sm:px-6 sm:py-8"
+          className="flex min-h-[calc(100vh-81px)] w-full items-center justify-center bg-cover bg-center bg-no-repeat px-4 py-4 sm:px-6 sm:py-6"
           style={{
-            backgroundImage: `linear-gradient(rgba(255, 249, 241, 0.72), rgba(255, 249, 241, 0.78)), url(${bgLogin})`,
+            backgroundImage: `url(${bgLogin})`,
           }}
         >
           <Outlet />

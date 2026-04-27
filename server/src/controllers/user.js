@@ -1,5 +1,6 @@
 import * as userService from "../services/user";
 import * as postService from "../services/post";
+import * as savedPostService from "../services/savedPost";
 
 const {
   normalizePostPayload,
@@ -53,7 +54,7 @@ export const getMyPosts = async (req, res) => {
       if (!normalizedStatus) {
         return res.status(400).json({
           err: 1,
-          msg: "Trang thai bai dang khong hop le.",
+          msg: "Trạng thái bài đăng không hợp lệ.",
           response: null,
         });
       }
@@ -95,7 +96,7 @@ export const createMyPost = async (req, res) => {
     if (!categoryCode || !title || !priceNumber || !areaNumber) {
       return res.status(400).json({
         err: 1,
-        msg: "Thieu du lieu dau vao.",
+        msg: "Thiếu dữ liệu đầu vào.",
         response: null,
       });
     }
@@ -125,19 +126,54 @@ export const createMyPost = async (req, res) => {
 };
 
 export const updateMyPost = async (req, res) => {
-  return res.status(403).json({
-    err: 1,
-    msg: "Khong duoc phep chinh sua bai dang trong workflow hien tai.",
-    response: null,
-  });
+  try {
+    const normalizedPayload = normalizePostPayload(req.body);
+    const { categoryCode, title, priceNumber, areaNumber } = normalizedPayload;
+
+    if (!categoryCode || !title || !priceNumber || !areaNumber) {
+      return res.status(400).json({
+        err: 1,
+        msg: "Thiếu dữ liệu đầu vào.",
+        response: null,
+      });
+    }
+
+    const validationMessage = validatePostPayload(normalizedPayload);
+    if (validationMessage) {
+      return res.status(400).json({
+        err: 1,
+        msg: validationMessage,
+        response: null,
+      });
+    }
+
+    const response = await postService.updatePostService(
+      req.params.id,
+      normalizedPayload,
+      req.user.id,
+    );
+
+    return res.status(response?.err === 0 ? 200 : 400).json(response);
+  } catch (error) {
+    return res.status(500).json({
+      err: -1,
+      msg: `Failed at user controller: ${error}`,
+      response: null,
+    });
+  }
 };
 
 export const deleteMyPost = async (req, res) => {
-  return res.status(403).json({
-    err: 1,
-    msg: "Khong duoc phep xoa bai dang trong workflow hien tai.",
-    response: null,
-  });
+  try {
+    const response = await postService.deletePostService(req.params.id, req.user.id);
+    return res.status(response?.err === 0 ? 200 : 400).json(response);
+  } catch (error) {
+    return res.status(500).json({
+      err: -1,
+      msg: `Failed at user controller: ${error}`,
+      response: null,
+    });
+  }
 };
 
 export const uploadMyPostImage = async (req, res) => {
@@ -145,7 +181,7 @@ export const uploadMyPostImage = async (req, res) => {
     if (!req.file?.filename) {
       return res.status(400).json({
         err: 1,
-        msg: "Khong nhan duoc tep anh hop le.",
+        msg: "Không nhận được tệp ảnh hợp lệ.",
         response: null,
       });
     }
@@ -162,6 +198,49 @@ export const uploadMyPostImage = async (req, res) => {
       secure_url: `${baseUrl}/uploads/posts/${req.file.filename}`,
       original_filename: req.file.originalname,
     });
+  } catch (error) {
+    return res.status(500).json({
+      err: -1,
+      msg: `Failed at user controller: ${error}`,
+      response: null,
+    });
+  }
+};
+
+export const getSavedPostIds = async (req, res) => {
+  try {
+    const response = await savedPostService.getSavedPostIdsService(req.user?.id);
+    return res.status(200).json(response);
+  } catch (error) {
+    return res.status(500).json({
+      err: -1,
+      msg: `Failed at user controller: ${error}`,
+      response: null,
+    });
+  }
+};
+
+export const getSavedPosts = async (req, res) => {
+  try {
+    const response = await savedPostService.getSavedPostsService(req.user?.id);
+    return res.status(200).json(response);
+  } catch (error) {
+    return res.status(500).json({
+      err: -1,
+      msg: `Failed at user controller: ${error}`,
+      response: null,
+    });
+  }
+};
+
+export const toggleSavedPost = async (req, res) => {
+  try {
+    const response = await savedPostService.toggleSavedPostService(
+      req.user?.id,
+      req.params?.postId,
+    );
+    const statusCode = response?.statusCode || (response?.err === 0 ? 200 : 400);
+    return res.status(statusCode).json(response);
   } catch (error) {
     return res.status(500).json({
       err: -1,

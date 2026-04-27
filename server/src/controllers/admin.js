@@ -24,7 +24,7 @@ export const getPosts = async (req, res) => {
       if (!normalizedStatus) {
         return res.status(400).json({
           err: 1,
-          msg: "Trang thai bai dang khong hop le.",
+          msg: "Trạng thái bài đăng không hợp lệ.",
           response: null,
         });
       }
@@ -73,7 +73,7 @@ export const updatePostStatus = async (req, res) => {
   if (!POST_STATUSES.includes(nextStatus)) {
     return res.status(400).json({
       err: 1,
-      msg: "Trang thai bai dang khong hop le.",
+      msg: "Trạng thái bài đăng không hợp lệ.",
       response: null,
     });
   }
@@ -156,7 +156,7 @@ export const updateUserStatus = async (req, res) => {
   if (!USER_STATUSES.includes(nextStatus)) {
     return res.status(400).json({
       err: 1,
-      msg: "Trang thai tai khoan khong hop le.",
+      msg: "Trạng thái tài khoản không hợp lệ.",
       response: null,
     });
   }

@@ -82,7 +82,7 @@ export const createNewPost = async (req, res) => {
     if (!categoryCode || !id || !title || !priceNumber || !areaNumber) {
       return res.status(400).json({
         err: 1,
-        msg: "Thieu du lieu dau vao.",
+        msg: "Thiếu dữ liệu đầu vào.",
         response: null,
       });
     }
@@ -121,7 +121,7 @@ export const getPostsByCurrentUser = async (req, res) => {
       if (!normalizedStatus) {
         return res.status(400).json({
           err: 1,
-          msg: "Trang thai bai dang khong hop le.",
+          msg: "Trạng thái bài đăng không hợp lệ.",
           response: null,
         });
       }
@@ -161,19 +161,58 @@ export const getPostsByCurrentUser = async (req, res) => {
 };
 
 export const updatePost = async (req, res) => {
-  return res.status(403).json({
-    err: 1,
-    msg: "Khong duoc phep chinh sua bai dang trong workflow hien tai.",
-    response: null,
-  });
+  try {
+    const normalizedPayload = normalizePostPayload(req.body);
+    const { categoryCode, title, priceNumber, areaNumber } = normalizedPayload;
+    const { id } = req.user || {};
+
+    if (!categoryCode || !id || !title || !priceNumber || !areaNumber) {
+      return res.status(400).json({
+        err: 1,
+        msg: "Thiếu dữ liệu đầu vào.",
+        response: null,
+      });
+    }
+
+    const validationMessage = validatePostPayload(normalizedPayload);
+    if (validationMessage) {
+      return res.status(400).json({
+        err: 1,
+        msg: validationMessage,
+        response: null,
+      });
+    }
+
+    const response = await postService.updatePostService(
+      req.params.id,
+      normalizedPayload,
+      id,
+    );
+
+    return res.status(response?.err === 0 ? 200 : 400).json(response);
+  } catch (error) {
+    return res.status(500).json({
+      err: -1,
+      msg: `Failed at post controller: ${error}`,
+      response: null,
+    });
+  }
 };
 
 export const deletePost = async (req, res) => {
-  return res.status(403).json({
-    err: 1,
-    msg: "Khong duoc phep xoa bai dang trong workflow hien tai.",
-    response: null,
-  });
+  try {
+    const response = await postService.deletePostService(
+      req.params.id,
+      req.user?.id,
+    );
+    return res.status(response?.err === 0 ? 200 : 400).json(response);
+  } catch (error) {
+    return res.status(500).json({
+      err: -1,
+      msg: `Failed at post controller: ${error}`,
+      response: null,
+    });
+  }
 };
 
 export const uploadImage = async (req, res) => {
@@ -181,7 +220,7 @@ export const uploadImage = async (req, res) => {
     if (!req.file?.filename) {
       return res.status(400).json({
         err: 1,
-        msg: "Khong nhan duoc tep anh hop le.",
+        msg: "Không nhận được tệp ảnh hợp lệ.",
         response: null,
       });
     }

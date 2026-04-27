@@ -35,7 +35,7 @@ const ConfirmDialog = ({
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-rose-600">
-              Xác nhận xóa
+              Xác nhận thao tác
             </p>
             <h2 className="text-2xl font-bold text-slate-950">{title}</h2>
           </div>
@@ -67,7 +67,7 @@ const ConfirmDialog = ({
             disabled={isSubmitting}
             className="inline-flex min-h-[46px] items-center justify-center whitespace-nowrap rounded-xl bg-rose-600 px-4 text-sm font-semibold leading-none text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSubmitting ? "Đang xóa..." : confirmLabel}
+            {isSubmitting ? "Đang xử lý..." : confirmLabel}
           </button>
         </div>
       </div>

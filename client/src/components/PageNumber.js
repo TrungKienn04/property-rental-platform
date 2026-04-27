@@ -5,6 +5,7 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
+import { scrollToPostList, scrollToTop } from "../ultils/Common/scrollHelpers";
 const {
   buildSearchParamsObject,
   mergeQueryValues,
@@ -18,16 +19,9 @@ const PageNumber = ({ text, currentPage, icon, setCurrentPage }) => {
   const isEllipsis = text === "...";
 
   const scrollToPostsTop = () => {
-    try {
-      const el = document.getElementById("post-list");
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-        return;
-      }
-    } catch (e) {
-      // ignore
+    if (!scrollToPostList({ behavior: "smooth" })) {
+      scrollToTop("smooth");
     }
-    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleChangePage = () => {
@@ -42,9 +36,10 @@ const PageNumber = ({ text, currentPage, icon, setCurrentPage }) => {
     navigate({
       pathname: location.pathname,
       search: createSearchParams(nextQuery).toString(),
+      hash: "#post-list",
     });
     // Scroll to list top after navigation to improve UX
-    scrollToPostsTop();
+    setTimeout(scrollToPostsTop, 80);
   };
 
   return (

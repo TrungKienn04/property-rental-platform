@@ -6,12 +6,15 @@ import {
   ConfirmDialog,
   Loading,
   SystemPageHeader,
+  SystemPostForm,
 } from "../../components";
 import {
   apiDeleteAdminPost,
+  apiDeletePost,
   apiGetAdminPosts,
   apiGetUserPosts,
   apiUpdateAdminPostStatus,
+  apiUpdatePost,
 } from "../../services";
 import * as actions from "../../store/actions";
 import { path } from "../../ultils/constant";
@@ -22,12 +25,19 @@ import {
   createDetailPath,
   getAdminStatusActions,
   getPostStatusMeta,
+  normalizePostFormFromRecord,
+  toPostPayload,
+  validatePostForm,
 } from "../../ultils/Common/systemPost";
 
 const {
   isAdminRole,
   isBlockedUserStatus,
 } = require("../../ultils/Common/authHelpers");
+const {
+  canDeletePost,
+  canEditManagedPost,
+} = require("../../ultils/Common/postPermissions");
 
 const summaryCardClass =
   "surface-card rounded-[22px] border border-slate-200 bg-white px-5 py-5 lg:px-6";
@@ -105,7 +115,7 @@ const buildVisiblePages = (currentPage, totalPages) => {
   return visible;
 };
 
-const getStatusActionContent = (action) => {
+const getDialogActionContent = (action) => {
   switch (action?.key) {
     case "approve":
       return {
@@ -130,24 +140,24 @@ const getStatusActionContent = (action) => {
       };
     case "reopen-rejected":
       return {
-        title: "Gá»¡ bÃ i tá»« chá»‘i",
-        confirmText: "Gá»¡",
-        successTitle: "ÄÃ£ gá»¡ bÃ i tá»« chá»‘i",
-        successText: "BÃ i Ä‘Äƒng Ä‘Ã£ quay láº¡i tab chá» duyá»‡t.",
+        title: "Gỡ bài từ chối",
+        confirmText: "Gỡ",
+        successTitle: "Đã gỡ bài từ chối",
+        successText: "Bài đăng đã quay lại tab chờ duyệt.",
       };
     case "unhide":
       return {
-        title: "Gá»¡ áº©n bÃ i Ä‘Äƒng",
-        confirmText: "Gá»¡ áº©n",
-        successTitle: "ÄÃ£ gá»¡ áº©n bÃ i Ä‘Äƒng",
-        successText: "BÃ i Ä‘Äƒng Ä‘Ã£ quay láº¡i tab Ä‘ang hiá»ƒn thá»‹.",
+        title: "Gỡ ẩn bài đăng",
+        confirmText: "Gỡ ẩn",
+        successTitle: "Đã gỡ ẩn bài đăng",
+        successText: "Bài đăng đã quay lại tab đang hiển thị.",
       };
     case "restore-deleted":
       return {
-        title: "HoÃ n tÃ¡c bÃ i Ä‘Äƒng",
-        confirmText: "HoÃ n tÃ¡c",
-        successTitle: "ÄÃ£ hoÃ n tÃ¡c bÃ i Ä‘Äƒng",
-        successText: "BÃ i Ä‘Äƒng Ä‘Ã£ quay vá» tab trÆ°á»›c khi xÃ³a.",
+        title: "Hoàn tác bài đăng",
+        confirmText: "Hoàn tác",
+        successTitle: "Đã hoàn tác bài đăng",
+        successText: "Bài đăng đã quay về tab trước khi xóa.",
       };
     case "soft-delete-pending":
     case "soft-delete-published":
@@ -167,65 +177,6 @@ const getStatusActionContent = (action) => {
         successTitle: "Đã cập nhật trạng thái",
         successText: "Trạng thái bài đăng đã được cập nhật.",
       };
-  }
-};
-
-const getDialogActionContent = (action) => {
-  switch (action?.key) {
-    case "approve":
-      return {
-        title: "Duyet bai dang",
-        confirmText: "Duyet",
-        successTitle: "Da duyet bai dang",
-        successText: "Bai dang da chuyen sang trang thai dang hien thi.",
-      };
-    case "reject":
-      return {
-        title: "Tu choi bai dang",
-        confirmText: "Tu choi",
-        successTitle: "Da tu choi bai dang",
-        successText: "Bai dang da chuyen sang trang thai tu choi.",
-      };
-    case "hide":
-      return {
-        title: "An bai dang",
-        confirmText: "An bai",
-        successTitle: "Da an bai dang",
-        successText: "Bai dang da chuyen sang trang thai da an.",
-      };
-    case "reopen-rejected":
-      return {
-        title: "Go bai tu choi",
-        confirmText: "Go",
-        successTitle: "Da go bai tu choi",
-        successText: "Bai dang da quay lai tab cho duyet.",
-      };
-    case "unhide":
-      return {
-        title: "Go an bai dang",
-        confirmText: "Go an",
-        successTitle: "Da go an bai dang",
-        successText: "Bai dang da quay lai tab dang hien thi.",
-      };
-    case "restore-deleted":
-      return {
-        title: "Hoan tac bai dang",
-        confirmText: "Hoan tac",
-        successTitle: "Da hoan tac bai dang",
-        successText: "Bai dang da quay ve tab truoc khi xoa.",
-      };
-    case "soft-delete-pending":
-    case "soft-delete-published":
-    case "soft-delete-rejected":
-    case "soft-delete-hidden":
-      return {
-        title: "Xoa bai dang",
-        confirmText: "Xoa",
-        successTitle: "Da xoa mem bai dang",
-        successText: "Bai dang da chuyen sang tab da xoa.",
-      };
-    default:
-      return getStatusActionContent(action);
   }
 };
 
@@ -290,6 +241,13 @@ const ManagePosts = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [activeActionKey, setActiveActionKey] = useState("");
   const [statusCounts, setStatusCounts] = useState({});
+  const [editingPostId, setEditingPostId] = useState("");
+  const [editingPostSnapshot, setEditingPostSnapshot] = useState(null);
+  const [editFormData, setEditFormData] = useState(
+    normalizePostFormFromRecord(),
+  );
+  const [editErrors, setEditErrors] = useState({});
+  const [isUpdatingPost, setIsUpdatingPost] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
     count: 0,
@@ -316,6 +274,14 @@ const ManagePosts = () => {
       ),
     [categories],
   );
+
+  const editingPost = useMemo(() => {
+    if (!editingPostId) return null;
+
+    return (
+      posts.find((item) => item.id === editingPostId) || editingPostSnapshot
+    );
+  }, [editingPostId, editingPostSnapshot, posts]);
 
   const totalCount = useMemo(() => {
     const summaryCount = Object.values(statusCounts || {}).reduce(
@@ -403,9 +369,33 @@ const ManagePosts = () => {
     fetchPosts();
   }, [fetchPosts]);
 
+  useEffect(() => {
+    if (!editingPostId) return;
+
+    const matchedPost = posts.find((item) => item.id === editingPostId);
+
+    if (matchedPost) {
+      setEditingPostSnapshot(matchedPost);
+      return;
+    }
+
+    if (!loading) {
+      setEditingPostId("");
+      setEditingPostSnapshot(null);
+      setEditErrors({});
+    }
+  }, [editingPostId, loading, posts]);
+
   const refreshAfterMutation = useCallback(async () => {
     await Promise.all([syncPublicPostLists(), fetchPosts()]);
   }, [fetchPosts, syncPublicPostLists]);
+
+  const resetEditingState = useCallback(() => {
+    setEditingPostId("");
+    setEditingPostSnapshot(null);
+    setEditErrors({});
+    setEditFormData(normalizePostFormFromRecord());
+  }, []);
 
   const handleStatusFilterChange = (status) => {
     setSearchParams(updateStatusFilterParams(searchParams, status));
@@ -476,52 +466,166 @@ const ManagePosts = () => {
     }
   };
 
-  const handleForceDelete = async () => {
-    if (!deleteTarget?.id || !isAdmin) return;
+  const handleStartEdit = (post) => {
+    setEditingPostId(post.id);
+    setEditingPostSnapshot(post);
+    setEditFormData(normalizePostFormFromRecord(post));
+    setEditErrors({});
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
-    setIsDeleting(true);
+  const handleUpdatePost = async () => {
+    if (!editingPostId || isAdmin) return;
+
+    const nextErrors = validatePostForm(editFormData);
+    setEditErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length) return;
+
+    setIsUpdatingPost(true);
 
     try {
-      const response = await apiDeleteAdminPost(deleteTarget.id);
+      const response = await apiUpdatePost(
+        editingPostId,
+        toPostPayload(editFormData),
+      );
 
       if (response?.data?.err === 0) {
         await refreshAfterMutation();
-        setDeleteTarget(null);
+        resetEditingState();
 
         await Swal.fire({
           icon: "success",
-          title: "Đã xóa vĩnh viễn",
-          text: "Bài đăng đã bị xóa khỏi dữ liệu hệ thống.",
+          title: "Đã lưu thay đổi",
+          text: "Thông tin bài đăng của bạn đã được cập nhật thành công.",
         });
         return;
       }
 
       await Swal.fire({
         icon: "error",
-        title: "Không thể xóa vĩnh viễn",
+        title: "Không thể lưu thay đổi",
+        text:
+          response?.data?.msg || "Có lỗi xảy ra khi cập nhật bài đăng.",
+      });
+    } catch (error) {
+      await Swal.fire({
+        icon: "error",
+        title: "Không thể lưu thay đổi",
+        text:
+          error?.response?.data?.msg ||
+          "Có lỗi xảy ra khi cập nhật bài đăng.",
+      });
+    } finally {
+      setIsUpdatingPost(false);
+    }
+  };
+
+  const openDeleteDialog = (post, mode) => {
+    setDeleteTarget({ post, mode });
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget?.post?.id) return;
+
+    setIsDeleting(true);
+
+    try {
+      if (deleteTarget.mode === "force-delete" && isAdmin) {
+        const response = await apiDeleteAdminPost(deleteTarget.post.id);
+
+        if (response?.data?.err === 0) {
+          await refreshAfterMutation();
+          setDeleteTarget(null);
+
+          await Swal.fire({
+            icon: "success",
+            title: "Đã xóa vĩnh viễn",
+            text: "Bài đăng đã bị xóa khỏi dữ liệu hệ thống.",
+          });
+          return;
+        }
+
+        await Swal.fire({
+          icon: "error",
+          title: "Không thể xóa vĩnh viễn",
+          text:
+            response?.data?.msg || "Có lỗi xảy ra khi xóa bài đăng.",
+        });
+        return;
+      }
+
+      const response = await apiDeletePost(deleteTarget.post.id);
+
+      if (response?.data?.err === 0) {
+        if (editingPostId === deleteTarget.post.id) {
+          resetEditingState();
+        }
+
+        await refreshAfterMutation();
+        setDeleteTarget(null);
+
+        await Swal.fire({
+          icon: "success",
+          title: "Đã xóa bài đăng",
+          text: "Bài đăng của bạn đã được xóa thành công.",
+        });
+        return;
+      }
+
+      await Swal.fire({
+        icon: "error",
+        title: "Không thể xóa bài đăng",
         text: response?.data?.msg || "Có lỗi xảy ra khi xóa bài đăng.",
       });
     } catch (error) {
       await Swal.fire({
         icon: "error",
-        title: "Không thể xóa vĩnh viễn",
+        title:
+          deleteTarget?.mode === "force-delete"
+            ? "Không thể xóa vĩnh viễn"
+            : "Không thể xóa bài đăng",
         text:
           error?.response?.data?.msg ||
-          "Có lỗi xảy ra khi xóa vĩnh viễn bài đăng.",
+          (deleteTarget?.mode === "force-delete"
+            ? "Có lỗi xảy ra khi xóa vĩnh viễn bài đăng."
+            : "Có lỗi xảy ra khi xóa bài đăng."),
       });
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const renderPostCard = (post) => {
+  const renderPostCard = (post, options = {}) => {
+    const { hideActions = false, highlight = false } = options;
     const statusMeta = getPostStatusMeta(post);
     const adminActions = isAdmin ? getAdminStatusActions(post) : [];
     const isOwner =
       String(currentUserId || "").trim() === String(post.userId || "").trim();
+    const canEditThisPost =
+      !isAdmin &&
+      post.status !== POST_STATUS.DELETED &&
+      canEditManagedPost({
+        role: resolvedRole,
+        currentUserId,
+        post,
+        currentUserStatus,
+      });
+    const canDeleteThisPost =
+      !isAdmin &&
+      post.status !== POST_STATUS.DELETED &&
+      canDeletePost({
+        role: resolvedRole,
+        currentUserId,
+        post,
+        currentUserStatus,
+      });
 
     return (
-      <article key={post.id} className={postCardClass}>
+      <article
+        key={post.id}
+        className={`${postCardClass} ${highlight ? "border-slate-900 shadow-[0_26px_60px_rgba(15,23,42,0.08)]" : ""}`}
+      >
         <div className="flex h-full flex-col gap-4 sm:flex-row">
           <div className="h-36 w-full overflow-hidden rounded-[18px] bg-slate-100 sm:h-32 sm:w-[160px] sm:flex-none">
             <img
@@ -548,11 +652,18 @@ const ManagePosts = () => {
                 </h3>
               </div>
 
-              <span
-                className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${statusMeta.tone}`}
-              >
-                {statusMeta.label}
-              </span>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {highlight ? (
+                  <span className="inline-flex whitespace-nowrap rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
+                    Đang chỉnh sửa
+                  </span>
+                ) : null}
+                <span
+                  className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${statusMeta.tone}`}
+                >
+                  {statusMeta.label}
+                </span>
+              </div>
             </div>
 
             <div className="mt-3 space-y-3 text-sm text-slate-500">
@@ -615,45 +726,67 @@ const ManagePosts = () => {
               ) : null}
             </div>
 
-            <div className="mt-auto flex flex-wrap gap-2 pt-5">
-              <Link
-                to={createDetailPath(post)}
-                className={`${actionButtonBaseClass} border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900`}
-              >
-                {isAdmin && post.status === POST_STATUS.PUBLISHED
-                  ? "Xem chi tiết"
-                  : "Xem"}
-              </Link>
+            {!hideActions ? (
+              <div className="mt-auto flex flex-wrap gap-2 pt-5">
+                <Link
+                  to={createDetailPath(post)}
+                  className={`${actionButtonBaseClass} border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900`}
+                >
+                  Xem
+                </Link>
 
-              {adminActions.map((action) => {
-                const actionKey = `${post.id}:${action.key}`;
+                {!isAdmin && canEditThisPost ? (
+                  <button
+                    type="button"
+                    onClick={() => handleStartEdit(post)}
+                    className={`${actionButtonBaseClass} border-slate-900 bg-slate-900 text-white hover:bg-slate-800`}
+                  >
+                    Sửa
+                  </button>
+                ) : null}
 
-                if (action.actionType === "force-delete") {
+                {!isAdmin && canDeleteThisPost ? (
+                  <button
+                    type="button"
+                    onClick={() => openDeleteDialog(post, "delete-own")}
+                    className={`${actionButtonBaseClass} border-rose-200 bg-white text-rose-600 hover:bg-rose-50 hover:text-rose-700`}
+                  >
+                    Xóa
+                  </button>
+                ) : null}
+
+                {adminActions.map((action) => {
+                  const actionKey = `${post.id}:${action.key}`;
+
+                  if (action.actionType === "force-delete") {
+                    return (
+                      <button
+                        key={action.key}
+                        type="button"
+                        onClick={() => openDeleteDialog(post, "force-delete")}
+                        className={`${actionButtonBaseClass} ${action.className}`}
+                      >
+                        {action.label}
+                      </button>
+                    );
+                  }
+
                   return (
                     <button
                       key={action.key}
                       type="button"
-                      onClick={() => setDeleteTarget(post)}
-                      className={`${actionButtonBaseClass} ${action.className}`}
+                      disabled={activeActionKey === actionKey}
+                      onClick={() => handleAdminAction(post, action)}
+                      className={`${actionButtonBaseClass} ${action.className} disabled:cursor-not-allowed disabled:opacity-60`}
                     >
-                      {action.label}
+                      {activeActionKey === actionKey
+                        ? "Đang xử lý..."
+                        : action.label}
                     </button>
                   );
-                }
-
-                return (
-                  <button
-                    key={action.key}
-                    type="button"
-                    disabled={activeActionKey === actionKey}
-                    onClick={() => handleAdminAction(post, action)}
-                    className={`${actionButtonBaseClass} ${action.className} disabled:cursor-not-allowed disabled:opacity-60`}
-                  >
-                    {activeActionKey === actionKey ? "Đang xử lý..." : action.label}
-                  </button>
-                );
-              })}
-            </div>
+                })}
+              </div>
+            ) : null}
           </div>
         </div>
       </article>
@@ -664,7 +797,7 @@ const ManagePosts = () => {
     isAdmin || isBlockedUser ? null : (
       <Link
         to={`/he-thong/${path.CREATE_POST}`}
-        className="inline-flex min-h-[44px] items-center justify-center whitespace-nowrap rounded-md bg-slate-950 px-4 text-sm font-semibold leading-none text-white transition hover:bg-slate-800"
+        className="inline-flex min-h-[44px] items-center justify-center whitespace-nowrap rounded-md bg-slate-700 px-4 text-sm font-semibold leading-none text-white transition hover:bg-slate-800"
       >
         Tạo tin mới
       </Link>
@@ -692,10 +825,49 @@ const ManagePosts = () => {
         description={
           isAdmin
             ? "Mỗi tab chỉ lấy đúng trạng thái từ backend và mọi thao tác đều đi qua workflow kiểm duyệt."
-            : "Bạn chỉ có thể theo dõi trạng thái bài đăng đã tạo. Việc duyệt, ẩn và xóa do admin xử lý."
+            : "Bạn có thể theo dõi, sửa hoặc xóa bài đăng của chính mình ngay trong khu vực quản lý."
         }
         action={primaryAction}
       />
+
+      {editingPost ? (
+        <section className="space-y-4">
+          <div className={summaryCardClass}>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-amber-700">
+                  Chỉnh sửa bài đăng
+                </p>
+                <h2 className="mt-2 text-2xl font-bold text-slate-950">
+                  Kiểm tra lại toàn bộ thông tin trước khi lưu
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={resetEditingState}
+                className="inline-flex min-h-[42px] items-center justify-center rounded-md border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                Đóng phần sửa
+              </button>
+            </div>
+
+            {renderPostCard(editingPost, { hideActions: true, highlight: true })}
+          </div>
+
+          <div className="surface-card rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-[0_26px_60px_rgba(15,23,42,0.08)] lg:px-5 lg:py-5">
+            <SystemPostForm
+              value={editFormData}
+              setValue={setEditFormData}
+              errors={editErrors}
+              onSubmit={handleUpdatePost}
+              isSubmitting={isUpdatingPost}
+              submitLabel="Lưu thay đổi"
+              onCancel={resetEditingState}
+              showCancel
+            />
+          </div>
+        </section>
+      ) : null}
 
       <section className={summaryCardClass}>
         <div className="flex flex-col gap-4">
@@ -770,7 +942,7 @@ const ManagePosts = () => {
           {!isAdmin && !isBlockedUser ? (
             <Link
               to={`/he-thong/${path.CREATE_POST}`}
-              className="mt-5 inline-flex min-h-[44px] items-center justify-center whitespace-nowrap rounded-md bg-slate-950 px-5 text-sm font-semibold leading-none text-white transition hover:bg-slate-800"
+              className="mt-5 inline-flex min-h-[44px] items-center justify-center whitespace-nowrap rounded-md bg-slate-700 px-5 text-sm font-semibold leading-none text-white transition hover:bg-slate-800"
             >
               Đi tới trang đăng tin
             </Link>
@@ -780,11 +952,23 @@ const ManagePosts = () => {
 
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
-        title="Xác nhận xóa vĩnh viễn"
-        description={`Bài đăng "${deleteTarget?.title || ""}" sẽ bị xóa vĩnh viễn khỏi cơ sở dữ liệu và dữ liệu liên quan. Thao tác này không thể hoàn tác.`}
-        confirmLabel="Xóa vĩnh viễn"
+        title={
+          deleteTarget?.mode === "force-delete"
+            ? "Xác nhận xóa vĩnh viễn"
+            : "Xác nhận xóa bài đăng"
+        }
+        description={
+          deleteTarget?.mode === "force-delete"
+            ? `Bài đăng "${deleteTarget?.post?.title || ""}" sẽ bị xóa vĩnh viễn khỏi cơ sở dữ liệu và dữ liệu liên quan. Thao tác này không thể hoàn tác.`
+            : `Bài đăng "${deleteTarget?.post?.title || ""}" sẽ bị xóa khỏi danh sách quản lý của bạn. Thao tác này không thể hoàn tác.`
+        }
+        confirmLabel={
+          deleteTarget?.mode === "force-delete"
+            ? "Xóa vĩnh viễn"
+            : "Xóa bài đăng"
+        }
         cancelLabel="Quay lại"
-        onConfirm={handleForceDelete}
+        onConfirm={handleDelete}
         onClose={() => {
           if (!isDeleting) {
             setDeleteTarget(null);

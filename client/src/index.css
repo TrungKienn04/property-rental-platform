@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700;800;900&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -39,7 +39,7 @@
       ),
       linear-gradient(180deg, #fffdf8 0%, var(--page-bg) 38%, #f7efe5 100%);
     color: var(--text-main);
-    font-family: "Manrope", "Segoe UI", sans-serif;
+    font-family: "Roboto", "Segoe UI", system-ui, -apple-system, sans-serif;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
