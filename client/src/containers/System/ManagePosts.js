@@ -822,11 +822,11 @@ const ManagePosts = () => {
       <SystemPageHeader
         eyebrow={isAdmin ? "Admin mode" : "Bài đăng"}
         title={isAdmin ? "Kiểm duyệt bài đăng" : "Danh sách bài của tôi"}
-        description={
-          isAdmin
-            ? "Mỗi tab chỉ lấy đúng trạng thái từ backend và mọi thao tác đều đi qua workflow kiểm duyệt."
-            : "Bạn có thể theo dõi, sửa hoặc xóa bài đăng của chính mình ngay trong khu vực quản lý."
-        }
+        // description={
+        //   isAdmin
+        //     ? "Mỗi tab chỉ lấy đúng trạng thái từ backend và mọi thao tác đều đi qua workflow kiểm duyệt."
+        //     : "Bạn có thể theo dõi, sửa hoặc xóa bài đăng của chính mình ngay trong khu vực quản lý."
+        // }
         action={primaryAction}
       />
 

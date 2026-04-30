@@ -36,7 +36,7 @@ const Footer = () => {
           {/* Column 1 */}
           <div>
             <h4 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-800">
-              VỀ PHONGTRO123.COM
+              VỀ TroMoi
             </h4>
             <ul className="mt-4 space-y-2 text-slate-800 text-sm">
               {footerLinkGroups[0].links.map((item) => (
@@ -108,7 +108,7 @@ const Footer = () => {
           {/* Column 4 - Social */}
           <div>
             <h4 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-800">
-              THEO DÕI PHONGTRO123.COM
+              THEO DÕI TroMoi
             </h4>
             <div className="mt-4 flex items-center gap-3">
               <a
@@ -181,7 +181,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-8 border-t border-slate-300 pt-6 text-sm text-slate-800 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <p>© {new Date().getFullYear()} Phongtro123.com</p>
+          <p>© {new Date().getFullYear()} TroMoi</p>
           <div className="flex gap-4">
             <Link
               to="/thong-tin/chinh-sach-bao-mat"

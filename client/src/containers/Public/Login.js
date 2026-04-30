@@ -98,8 +98,8 @@ const Login = () => {
     } else if (!formData.identifier) {
       nextInvalidFields.identifier = "Vui lòng nhập email hoặc số điện thoại.";
     } else if (
-      !EMAIL_REGEX.test(formData.identifier)
-      && !PHONE_REGEX.test(formData.identifier)
+      !EMAIL_REGEX.test(formData.identifier) &&
+      !PHONE_REGEX.test(formData.identifier)
     ) {
       nextInvalidFields.identifier = "Email hoặc số điện thoại không hợp lệ.";
     }
@@ -119,8 +119,12 @@ const Login = () => {
 
     const finalPayload = {
       identifier: normalizeLoginIdentifier(payload.identifier),
-      phone: String(payload.phone || "").trim().replace(/\s+/g, ""),
-      email: String(payload.email || "").trim().toLowerCase(),
+      phone: String(payload.phone || "")
+        .trim()
+        .replace(/\s+/g, ""),
+      email: String(payload.email || "")
+        .trim()
+        .toLowerCase(),
       password: payload.password,
       name: String(payload.name || "").trim(),
     };
@@ -178,7 +182,7 @@ const Login = () => {
 
           <div className="pr-14">
             <span className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">
-              Tài khoản Phongtro123
+              Tài khoản TroMoi
             </span>
             <div className="mt-4 space-y-3">
               <h1 className="text-[26px] font-extrabold leading-tight text-slate-950 sm:text-[30px]">
@@ -316,8 +320,8 @@ const Login = () => {
 
             {!isRegister && (
               <p className="text-sm leading-6 text-slate-400">
-                Nếu quên mật khẩu, vui lòng dùng email hoặc số điện thoại đã đăng ký để
-                được hỗ trợ.
+                Nếu quên mật khẩu, vui lòng dùng email hoặc số điện thoại đã
+                đăng ký để được hỗ trợ.
               </p>
             )}
           </div>

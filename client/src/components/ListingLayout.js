@@ -20,7 +20,7 @@ const ListingLayout = ({
       <div className="px-0 py-0 lg:px-0 lg:py-0">
         <div className="max-w-6xl space-y-3">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-600">
-            Phongtro123
+            TroMoi
           </p>
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 whitespace-nowrap">
             {title}

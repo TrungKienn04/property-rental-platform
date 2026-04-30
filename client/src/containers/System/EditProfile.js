@@ -19,8 +19,8 @@ const persistRefreshedToken = (token) => {
 
   const mode = window.localStorage.getItem(AUTH_STORAGE_MODE_KEY);
   const preferSession =
-    mode === "session"
-    || (!mode && Boolean(window.sessionStorage.getItem("APP_TOKEN")));
+    mode === "session" ||
+    (!mode && Boolean(window.sessionStorage.getItem("APP_TOKEN")));
 
   window.localStorage.removeItem("APP_TOKEN");
   window.sessionStorage.removeItem("APP_TOKEN");
@@ -46,50 +46,18 @@ const createInitialForm = (currentData = {}) => ({
   confirmPassword: "",
 });
 
-const validateProfileForm = (values) => {
-  const errors = {};
-
-  if (!String(values.name || "").trim()) {
-    errors.name = "Nhập họ tên.";
-  } else if (String(values.name || "").trim().length < 2) {
-    errors.name = "Họ tên cần tối thiểu 2 ký tự.";
-  }
-
-  if (!/^0\d{8,10}$/.test(String(values.phone || "").trim())) {
-    errors.phone = "Số điện thoại không hợp lệ.";
-  }
-
-  if (
-    values.email &&
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(values.email).trim())
-  ) {
-    errors.email = "Email không hợp lệ.";
-  }
-
-  if (values.newPassword || values.currentPassword || values.confirmPassword) {
-    if (String(values.newPassword).length < 6) {
-      errors.newPassword = "Mật khẩu mới cần tối thiểu 6 ký tự.";
-    }
-    if (!values.currentPassword) {
-      errors.currentPassword = "Nhập mật khẩu hiện tại để đổi mật khẩu.";
-    }
-    if (values.newPassword !== values.confirmPassword) {
-      errors.confirmPassword = "Mật khẩu xác nhận không khớp.";
-    }
-  }
-
-  return errors;
-};
-
 const FieldError = ({ text }) =>
-  text ? <p className="mt-2 text-xs font-medium text-rose-600">{text}</p> : null;
+  text ? (
+    <p className="mt-2 text-xs font-medium text-rose-600">{text}</p>
+  ) : null;
 
 const EditProfile = () => {
   const dispatch = useDispatch();
   const { currentData } = useSelector((state) => state.user);
   const [formData, setFormData] = useState(createInitialForm(currentData));
   const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingContact, setIsSavingContact] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   useEffect(() => {
     setFormData(createInitialForm(currentData));
@@ -103,20 +71,109 @@ const EditProfile = () => {
     }));
   };
 
-  const handleSubmit = async () => {
-    const nextErrors = validateProfileForm(formData);
+  const validateContactForm = (values) => {
+    const nextErrors = {};
+
+    if (!String(values.name || "").trim()) {
+      nextErrors.name = "Nhập họ tên.";
+    } else if (String(values.name || "").trim().length < 2) {
+      nextErrors.name = "Họ tên cần tối thiểu 2 ký tự.";
+    }
+
+    if (!/^0\d{8,10}$/.test(String(values.phone || "").trim())) {
+      nextErrors.phone = "Số điện thoại không hợp lệ.";
+    }
+
+    if (
+      values.email &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(values.email).trim())
+    ) {
+      nextErrors.email = "Email không hợp lệ.";
+    }
+
+    return nextErrors;
+  };
+
+  const validatePasswordForm = (values) => {
+    const nextErrors = {};
+
+    if (!values.currentPassword) {
+      nextErrors.currentPassword = "Nhập mật khẩu hiện tại để đổi mật khẩu.";
+    }
+
+    if (String(values.newPassword || "").length < 6) {
+      nextErrors.newPassword = "Mật khẩu mới cần tối thiểu 6 ký tự.";
+    }
+
+    if (values.newPassword !== values.confirmPassword) {
+      nextErrors.confirmPassword = "Mật khẩu xác nhận không khớp.";
+    }
+
+    return nextErrors;
+  };
+
+  const handleSaveContact = async () => {
+    const nextErrors = validateContactForm(formData);
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length) return;
 
-    setIsSubmitting(true);
-
+    setIsSavingContact(true);
     try {
       const payload = {
         name: formData.name.trim(),
         phone: formData.phone.trim(),
         zalo: formData.zalo.trim(),
         email: formData.email.trim(),
+      };
+
+      const response = await apiUpdateProfile(payload);
+
+      if (response?.data?.err === 0) {
+        if (response?.data?.token) {
+          persistRefreshedToken(response?.data?.token);
+          dispatch({
+            type: actionTypes.LOGIN_SUCCESS,
+            data: response?.data?.token,
+          });
+        }
+        await dispatch(actions.getCurrent());
+        setErrors({});
+
+        await Swal.fire({
+          icon: "success",
+          title: "Đã cập nhật thông tin",
+          text: "Hồ sơ liên hệ đã được cập nhật.",
+        });
+        return;
+      }
+
+      await Swal.fire({
+        icon: "error",
+        title: "Không thể cập nhật",
+        text: response?.data?.msg || "Có lỗi xảy ra khi cập nhật thông tin.",
+      });
+    } catch (error) {
+      await Swal.fire({
+        icon: "error",
+        title: "Không thể cập nhật",
+        text:
+          error?.response?.data?.msg || "Có lỗi xảy ra khi cập nhật thông tin.",
+      });
+    } finally {
+      setIsSavingContact(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    const nextErrors = validatePasswordForm(formData);
+    setErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length) return;
+
+    setIsChangingPassword(true);
+    try {
+      const payload = {
         currentPassword: formData.currentPassword,
         newPassword: formData.newPassword,
       };
@@ -124,11 +181,13 @@ const EditProfile = () => {
       const response = await apiUpdateProfile(payload);
 
       if (response?.data?.err === 0) {
-        persistRefreshedToken(response?.data?.token);
-        dispatch({
-          type: actionTypes.LOGIN_SUCCESS,
-          data: response?.data?.token,
-        });
+        if (response?.data?.token) {
+          persistRefreshedToken(response?.data?.token);
+          dispatch({
+            type: actionTypes.LOGIN_SUCCESS,
+            data: response?.data?.token,
+          });
+        }
         await dispatch(actions.getCurrent());
         setFormData((prev) => ({
           ...prev,
@@ -140,26 +199,25 @@ const EditProfile = () => {
 
         await Swal.fire({
           icon: "success",
-          title: "Đã cập nhật tài khoản",
-          text: "Thông tin liên hệ và hồ sơ hiện tại đã được đồng bộ.",
+          title: "Đổi mật khẩu thành công",
+          text: "Mật khẩu của bạn đã được cập nhật.",
         });
         return;
       }
 
       await Swal.fire({
         icon: "error",
-        title: "Không thể cập nhật",
-        text: response?.data?.msg || "Có lỗi xảy ra khi cập nhật tài khoản.",
+        title: "Không thể đổi mật khẩu",
+        text: response?.data?.msg || "Có lỗi xảy ra khi đổi mật khẩu.",
       });
     } catch (error) {
       await Swal.fire({
         icon: "error",
-        title: "Không thể cập nhật",
-        text:
-          error?.response?.data?.msg || "Có lỗi xảy ra khi cập nhật tài khoản.",
+        title: "Không thể đổi mật khẩu",
+        text: error?.response?.data?.msg || "Có lỗi xảy ra khi đổi mật khẩu.",
       });
     } finally {
-      setIsSubmitting(false);
+      setIsChangingPassword(false);
     }
   };
 
@@ -176,13 +234,17 @@ const EditProfile = () => {
           <div>
             <h2 className="text-xl font-bold text-slate-950">Hồ sơ liên hệ</h2>
             <p className="mt-2 text-sm leading-7 text-slate-500">
-              Thông tin ở đây sẽ được dùng cho phần liên hệ trên bài đăng và trong khu vực quản trị.
+              Thông tin ở đây sẽ được dùng cho phần liên hệ trên bài đăng và
+              trong khu vực quản trị.
             </p>
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2">
             <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-800" htmlFor="name">
+              <label
+                className="mb-2 block text-sm font-semibold text-slate-800"
+                htmlFor="name"
+              >
                 Họ tên
               </label>
               <input
@@ -196,7 +258,10 @@ const EditProfile = () => {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-800" htmlFor="phone">
+              <label
+                className="mb-2 block text-sm font-semibold text-slate-800"
+                htmlFor="phone"
+              >
                 Số điện thoại
               </label>
               <input
@@ -213,7 +278,10 @@ const EditProfile = () => {
 
           <div className="grid gap-5 lg:grid-cols-2">
             <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-800" htmlFor="zalo">
+              <label
+                className="mb-2 block text-sm font-semibold text-slate-800"
+                htmlFor="zalo"
+              >
                 Zalo
               </label>
               <input
@@ -227,7 +295,10 @@ const EditProfile = () => {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-800" htmlFor="email">
+              <label
+                className="mb-2 block text-sm font-semibold text-slate-800"
+                htmlFor="email"
+              >
                 Gmail
               </label>
               <input
@@ -245,11 +316,11 @@ const EditProfile = () => {
           <div className="flex justify-end">
             <button
               type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
+              onClick={handleSaveContact}
+              disabled={isSavingContact}
               className={primaryButtonClass}
             >
-              {isSubmitting ? "Đang cập nhật..." : "Lưu thông tin"}
+              {isSavingContact ? "Đang cập nhật..." : "Lưu thông tin"}
             </button>
           </div>
         </div>
@@ -265,7 +336,10 @@ const EditProfile = () => {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-slate-800" htmlFor="currentPassword">
+            <label
+              className="mb-2 block text-sm font-semibold text-slate-800"
+              htmlFor="currentPassword"
+            >
               Mật khẩu hiện tại
             </label>
             <input
@@ -281,7 +355,10 @@ const EditProfile = () => {
 
           <div className="grid gap-5 lg:grid-cols-2">
             <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-800" htmlFor="newPassword">
+              <label
+                className="mb-2 block text-sm font-semibold text-slate-800"
+                htmlFor="newPassword"
+              >
                 Mật khẩu mới
               </label>
               <input
@@ -296,7 +373,10 @@ const EditProfile = () => {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-800" htmlFor="confirmPassword">
+              <label
+                className="mb-2 block text-sm font-semibold text-slate-800"
+                htmlFor="confirmPassword"
+              >
                 Xác nhận mật khẩu mới
               </label>
               <input
@@ -314,11 +394,11 @@ const EditProfile = () => {
           <div className="flex justify-end">
             <button
               type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
+              onClick={handleChangePassword}
+              disabled={isChangingPassword}
               className={primaryButtonClass}
             >
-              {isSubmitting ? "Đang cập nhật..." : "Lưu mật khẩu"}
+              {isChangingPassword ? "Đang cập nhật..." : "Lưu mật khẩu"}
             </button>
           </div>
         </div>

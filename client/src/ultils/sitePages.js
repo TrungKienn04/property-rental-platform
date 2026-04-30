@@ -1,9 +1,9 @@
 export const infoPageContent = {
   "gioi-thieu": {
-    eyebrow: "Phongtro123.com",
+    eyebrow: "TroMoi",
     title: "Nền tảng tìm và đăng tin thuê trọ theo hướng rõ ràng, dễ dùng",
     description:
-      "Phongtro123.com tập trung vào trải nghiệm tìm phòng và đăng tin nhanh, giảm thao tác dư, hiển thị dữ liệu gọn, dễ so sánh và dễ liên hệ ngay khi người dùng tìm được tin phù hợp.",
+      "TroMoi tập trung vào trải nghiệm tìm phòng và đăng tin nhanh, giảm thao tác dư, hiển thị dữ liệu gọn, dễ so sánh và dễ liên hệ ngay khi người dùng tìm được tin phù hợp.",
     highlights: [
       "Luồng tìm kiếm bám sát nhu cầu thật của người thuê.",
       "Bố cục rõ ràng để xem giá, diện tích, khu vực và liên hệ trong vài giây.",
@@ -41,7 +41,7 @@ export const infoPageContent = {
         heading: "Nguyên tắc chung",
         paragraphs: [
           "Người dùng tự chịu trách nhiệm với nội dung, hình ảnh và thông tin liên hệ được cung cấp trên nền tảng.",
-          "Phongtro123.com đóng vai trò hạ tầng hiển thị và hỗ trợ điều hướng thông tin, không thay thế việc xác minh thực tế giữa các bên.",
+          "TroMoi đóng vai trò hạ tầng hiển thị và hỗ trợ điều hướng thông tin, không thay thế việc xác minh thực tế giữa các bên.",
         ],
       },
       {
@@ -117,7 +117,7 @@ export const infoPageContent = {
     highlights: [
       "Hotline vận hành: 0917 686 101",
       "Hỗ trợ đăng tin: 0902 657 123",
-      "Email: cskh.phongtro123@gmail.com",
+      "Email: cskh.TroMoi@gmail.com",
     ],
     sections: [
       {
@@ -275,7 +275,7 @@ export const infoPageContent = {
 
 export const footerLinkGroups = [
   {
-    title: "Về Phongtro123.com",
+    title: "Về TroMoi",
     links: [
       { label: "Giới thiệu", to: "/thong-tin/gioi-thieu" },
       { label: "Quy chế hoạt động", to: "/thong-tin/quy-che-hoat-dong" },
@@ -317,8 +317,8 @@ export const footerContactChannels = [
   },
   {
     label: "Email hỗ trợ",
-    value: "cskh.phongtro123@gmail.com",
-    href: "mailto:cskh.phongtro123@gmail.com",
+    value: "cskh.TroMoi@gmail.com",
+    href: "mailto:cskh.TroMoi@gmail.com",
   },
 ];
 

@@ -1,7 +1,7 @@
 export const text = {
-  title: "Tại sao lại chọn PhongTro123.com?",
+  title: "Tại sao lại chọn TroMoi?",
   description:
-    "Chúng tôi biết bạn có rất nhiều lựa chọn, nhưng Phongtro123.com tự hào là website đứng top Google với các nhu cầu tìm phòng trọ, nhà nguyên căn và căn hộ cho thuê.",
+    "Chúng tôi biết bạn có rất nhiều lựa chọn, nhưng TroMoi đáp ứng các nhu cầu tìm phòng trọ, nhà nguyên căn và căn hộ cho thuê.",
   description2:
     " Vì vậy tin của bạn tiếp cận được nhiều khách hàng hơn, giao dịch nhanh hơn và tiết kiệm chi phí hơn.",
   statistic: [
@@ -24,8 +24,9 @@ export const text = {
   ],
   price: "Chi phí thấp, hiệu quả tối đa",
   comment:
-    '"Trước khi biết website phongtro123, mình phải tốn nhiều công sức và chi phí cho việc đăng tin cho thuê. Từ khi dùng phongtro123.com, hiệu quả cao hơn rõ rệt trong khi chi phí hợp lý."',
-  author: "Anh Khánh, chủ hệ thống phòng trọ tại TP.HCM",
+    '"Trước khi biết website TroMoi, mình phải tốn nhiều công sức và chi phí cho việc đăng tin cho thuê. Từ khi dùng TroMoi, hiệu quả cao hơn rõ rệt."',
+  author: "Anh Tú, chủ hệ thống phòng trọ tại TP.HCM",
   question: "Bạn đang có phòng trọ hoặc căn hộ cho thuê?",
-  answer: "Đăng tin đúng nơi giúp bạn giảm thời gian trống phòng và tiếp cận khách thuê thật nhanh.",
+  answer:
+    "Đăng tin đúng nơi giúp bạn giảm thời gian trống phòng và tiếp cận khách thuê thật nhanh.",
 };
