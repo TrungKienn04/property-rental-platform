@@ -8,6 +8,7 @@
     "backfill:province": "babel-node src/scripts/backfillProvinceCodes.js",
     "backfill:price-area": "babel-node src/scripts/backfillPriceAreaCodes.js",
     "repair:images": "babel-node src/scripts/repairImages.js",
+    "rebase:dates-2026": "babel-node src/scripts/rebaseDatesTo2026.js",
     "smoke:filters": "node src/scripts/smokeFilters.js",
     "test": "node test/run-tests.cjs"
   },

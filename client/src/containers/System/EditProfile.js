@@ -174,6 +174,10 @@ const EditProfile = () => {
     setIsChangingPassword(true);
     try {
       const payload = {
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
+        zalo: formData.zalo.trim(),
+        email: formData.email.trim(),
         currentPassword: formData.currentPassword,
         newPassword: formData.newPassword,
       };
