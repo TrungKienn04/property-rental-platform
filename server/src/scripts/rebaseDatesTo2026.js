@@ -1,11 +1,18 @@
-import db from "../models";
+import db from "../models/index.js";
 
 const WINDOW_START = "2026-02-01 08:00:00";
 const WINDOW_MINUTES = 48 * 24 * 60; // 01 Feb through 20 Mar
 const MAX_UPDATE_DELAY_MINUTES = 3 * 24 * 60;
 const TIMESTAMP_TABLES = [
-  "Posts", "Users", "SavedPosts", "Categories", "Categorys",
-  "Prices", "Areas", "Provinces", "Labels",
+  "Posts",
+  "Users",
+  "SavedPosts",
+  "Categories",
+  "Categorys",
+  "Prices",
+  "Areas",
+  "Provinces",
+  "Labels",
 ];
 
 const hasColumn = (columns, column) =>
@@ -19,7 +26,12 @@ const updatedExpression = (idColumn = "id") =>
 
 const updateTimestampPair = async (queryInterface, tableName, transaction) => {
   const columns = await queryInterface.describeTable(tableName);
-  if (!hasColumn(columns, "id") || !hasColumn(columns, "createdAt") || !hasColumn(columns, "updatedAt")) return;
+  if (
+    !hasColumn(columns, "id") ||
+    !hasColumn(columns, "createdAt") ||
+    !hasColumn(columns, "updatedAt")
+  )
+    return;
 
   await db.sequelize.query(
     `UPDATE \`${tableName}\` SET \`createdAt\` = ${createdExpression()}, \`updatedAt\` = ${updatedExpression()}`,
@@ -30,25 +42,38 @@ const updateTimestampPair = async (queryInterface, tableName, transaction) => {
 const run = async () => {
   const queryInterface = db.sequelize.getQueryInterface();
   const tables = await queryInterface.showAllTables();
-  const existing = new Map(tables.map((name) => [String(name).toLowerCase(), String(name)]));
+  const existing = new Map(
+    tables.map((name) => [String(name).toLowerCase(), String(name)]),
+  );
   const transaction = await db.sequelize.transaction();
 
   try {
     for (const requestedName of TIMESTAMP_TABLES) {
       const actualName = existing.get(requestedName.toLowerCase());
-      if (actualName) await updateTimestampPair(queryInterface, actualName, transaction);
+      if (actualName)
+        await updateTimestampPair(queryInterface, actualName, transaction);
     }
 
     const postsName = existing.get("posts");
     if (postsName) {
       const postsColumns = await queryInterface.describeTable(postsName);
 
-      const syncChild = async (childName, postForeignKey, extraAssignments = []) => {
+      const syncChild = async (
+        childName,
+        postForeignKey,
+        extraAssignments = [],
+      ) => {
         const actualChildName = existing.get(childName.toLowerCase());
-        if (!actualChildName || !hasColumn(postsColumns, postForeignKey)) return;
+        if (!actualChildName || !hasColumn(postsColumns, postForeignKey))
+          return;
 
-        const childColumns = await queryInterface.describeTable(actualChildName);
-        if (!hasColumn(childColumns, "createdAt") || !hasColumn(childColumns, "updatedAt")) return;
+        const childColumns =
+          await queryInterface.describeTable(actualChildName);
+        if (
+          !hasColumn(childColumns, "createdAt") ||
+          !hasColumn(childColumns, "updatedAt")
+        )
+          return;
 
         await db.sequelize.query(
           `UPDATE \`${actualChildName}\` AS child INNER JOIN \`${postsName}\` AS post ON child.\`id\` = post.\`${postForeignKey}\` SET child.\`createdAt\` = post.\`createdAt\`, child.\`updatedAt\` = post.\`updatedAt\`${extraAssignments.join("")}`,
@@ -67,7 +92,9 @@ const run = async () => {
     }
 
     await transaction.commit();
-    console.log("All business timestamps now fall in Feb-Mar 2026 with createdAt before updatedAt.");
+    console.log(
+      "All business timestamps now fall in Feb-Mar 2026 with createdAt before updatedAt.",
+    );
   } catch (error) {
     await transaction.rollback();
     throw error;
